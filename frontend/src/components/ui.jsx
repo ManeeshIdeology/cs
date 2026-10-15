@@ -140,19 +140,25 @@ export function Empty({ icon: Icon, title, children, action }) {
 /* Focus-trapped modal that closes on Escape / backdrop click. */
 export function Modal({ open, onClose, children, side, wide }) {
   const ref = useRef(null)
+  // Keep the latest onClose without re-running the effect below: that effect moves focus into the
+  // dialog, and re-running it on every render would steal focus from the field being typed in.
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
   useEffect(() => {
     if (!open) return
     const prev = document.activeElement
-    const onKey = (e) => e.key === 'Escape' && onClose?.()
+    const onKey = (e) => e.key === 'Escape' && closeRef.current?.()
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
-    ref.current?.focus()
+    // Focus the first form field if there is one, otherwise the dialog itself.
+    const first = ref.current?.querySelector('input:not([type=radio]):not([type=checkbox]):not([disabled]), textarea, select')
+    ;(first || ref.current)?.focus({ preventScroll: true })
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
       prev?.focus?.()
     }
-  }, [open, onClose])
+  }, [open])
   if (!open) return null
   return (
     <div className={cx('overlay', side && 'right')} onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}>
