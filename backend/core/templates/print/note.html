@@ -1,0 +1,56 @@
+{% load print_extras %}
+<p class="h-main"><u><b>Feedback Note (by all IAS officers / State Department Officers/All Probationers of National and State Training Institutes and Academies)</b></u></p>
+
+<p class="h-section"><u><b>Section 1</b></u><b>: Officer Name and Details:</b></p>
+<ul class="bullets">
+  <li>Name : {{ n.name }}</li>
+  <li>Designation : {{ n.designation }}</li>
+  <li>Batch : {{ n.batch }}</li>
+  <li>Current service status: &nbsp;[&nbsp;{% if n.service_status == "Probationer" %}X{% else %}&nbsp;&nbsp;{% endif %}&nbsp;] Probationer &nbsp;&nbsp;&nbsp;&nbsp; [&nbsp;{% if n.service_status == "Confirmed" %}X{% else %}&nbsp;&nbsp;{% endif %}&nbsp;] Confirmed</li>
+  <li>Training Institute / Academy (if currently undergoing institutional training): {{ n.training_institute }}</li>
+  <li>Current Posting: {{ n.current_posting }}</li>
+</ul>
+
+<p class="h-section"><u><b>Section 2:</b></u><b> Feedback for Sixth National Conference of Chief Secretaries</b></p>
+
+<p class="q"><b>1. Name of the topic</b></p>
+<ol class="sub"><li><i>(Choose from the topics of the conference)</i></li></ol>
+<div class="topics">
+  {% for key, title in topics %}<div>{{ title }}</div>{% endfor %}
+</div>
+<div class="box box-topic">{{ n.topic_title }}</div>
+
+<div class="keep"><p class="q"><b>2. Policy Gaps and Challenges</b></p>
+<p class="hint">(Current policy challenges, administrative and implementing challenges with respect to the topic selected)</p></div>
+<div class="box box-gaps">{{ n.policy_gaps|linkify }}</div>
+
+<div class="keep"><p class="q"><b>3. Potential Solutions</b></p>
+<p class="hint">(Can potentially highlight new technology solutions, scope for convergence with other schemes/ programmes, etc.)</p></div>
+<div class="box box-solutions">{{ n.potential_solutions|linkify }}</div>
+
+<div class="keep"><p class="q"><b>4. Best Practices</b></p>
+<p class="hint">(Highlights the practices, which are sustainable, replicable, scalable, monitorable, etc. Can also highlights the block/district/ State level practices)</p></div>
+<div class="box box-best">{{ n.best_practices|linkify }}</div>
+
+{% if instructions %}
+<div class="instr">
+  <p class="q"><b>Instructions for filing feedback note:</b></p>
+  <ol class="num">
+    <li>References :
+      <ul class="bullets">
+        <li>In-text citing as well as the listing of all the references used for compiling the data and information.</li>
+        <li>Hyperlinks can be added &nbsp;in the document</li>
+      </ul>
+    </li>
+    <li>Documentation style:
+      <ul class="circles">
+        <li>Microsoft Word - Paper Size A4 with one inch margin from all four sides</li>
+        <li>Font: Times New Roman</li>
+        <li>Font Size: Title 14 pt; Section Heading - 12 pt; Body Text 11 Pt ;</li>
+        <li>Line Spacing : 1.25</li>
+        <li>Use additional spacing for section heading with spacing (After) - 6 pt</li>
+      </ul>
+    </li>
+  </ol>
+</div>
+{% endif %}

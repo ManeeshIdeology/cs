@@ -1,0 +1,105 @@
+from django.db import IntegrityError, transaction
+from django.utils import timezone
+from rest_framework import serializers
+
+from core.constants import MAX_NOTES_PER_USER, TOPIC_TITLES
+
+from .models import Note
+
+BOX_MAX = 20000
+
+
+class NoteSerializer(serializers.ModelSerializer):
+    """The signed-in user's own notes.
+
+    `submit` is write-only: true -> status "submitted" (every field must be filled),
+    false -> back to "draft". If omitted, the status is left as it is, and an
+    already-submitted note must stay complete.
+    """
+
+    submit = serializers.BooleanField(write_only=True, required=False)
+    topic_title = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Note
+        fields = [
+            "id", "topic", "topic_title", "status", "submit",
+            "name", "designation", "batch", "service_status", "training_institute", "current_posting",
+            "policy_gaps", "potential_solutions", "best_practices",
+            "created_at", "updated_at", "submitted_at",
+        ]
+        read_only_fields = ["id", "status", "created_at", "updated_at", "submitted_at"]
+        extra_kwargs = {
+            "policy_gaps": {"max_length": BOX_MAX},
+            "potential_solutions": {"max_length": BOX_MAX},
+            "best_practices": {"max_length": BOX_MAX},
+            "name": {"required": False},
+        }
+
+    def get_topic_title(self, obj):
+        return TOPIC_TITLES.get(obj.topic, "")
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+        if self.instance is None:
+            topic = attrs.get("topic")
+            mine = Note.objects.filter(user=user)
+            if mine.count() >= MAX_NOTES_PER_USER:
+                raise serializers.ValidationError({"topic": [f"You can file at most {MAX_NOTES_PER_USER} notes (one per topic)."]})
+            if mine.filter(topic=topic).exists():
+                raise serializers.ValidationError({"topic": ["You have already filed a note on this topic. Edit it from My notes."]})
+        else:
+            attrs.pop("topic", None)  # a note's topic never changes
+
+        current = {f: attrs.get(f, getattr(self.instance, f, "")) for f in [*Note.REQUIRED_ON_SUBMIT]}
+        if self.instance is None and not str(current.get("name", "")).strip():
+            current["name"] = attrs["name"] = user.name
+
+        submit = attrs.get("submit")
+        wants_submitted = submit if submit is not None else bool(self.instance and self.instance.status == Note.SUBMITTED)
+        if wants_submitted:
+            errors = {
+                f: [f"{label} is required to submit."]
+                for f, label in Note.REQUIRED_ON_SUBMIT.items()
+                if not str(current.get(f, "")).strip()
+            }
+            if errors:
+                raise serializers.ValidationError(errors)
+        attrs["_wants_submitted"] = wants_submitted
+        return attrs
+
+    def _apply_status(self, validated, instance=None):
+        wants = validated.pop("_wants_submitted", False)
+        validated.pop("submit", None)
+        if wants:
+            validated["status"] = Note.SUBMITTED
+            if not instance or instance.status != Note.SUBMITTED:
+                validated["submitted_at"] = timezone.now()
+        else:
+            validated["status"] = Note.DRAFT
+            validated["submitted_at"] = None
+        return validated
+
+    def create(self, validated):
+        validated = self._apply_status(validated)
+        try:
+            with transaction.atomic():
+                return Note.objects.create(user=self.context["request"].user, **validated)
+        except IntegrityError:  # two requests raced for the same topic
+            raise serializers.ValidationError({"topic": ["You have already filed a note on this topic."]})
+
+    def update(self, instance, validated):
+        validated = self._apply_status(validated, instance)
+        return super().update(instance, validated)
+
+
+class AdminNoteSerializer(NoteSerializer):
+    """Read-only view of any note, with the author's account details."""
+
+    user_id = serializers.IntegerField(read_only=True)
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+    state_ut = serializers.CharField(source="user.state_ut", read_only=True)
+
+    class Meta(NoteSerializer.Meta):
+        fields = [*NoteSerializer.Meta.fields, "user_id", "user_email", "state_ut"]
+        read_only_fields = fields

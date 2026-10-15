@@ -1,0 +1,14 @@
+<p class="h-main"><u><b>Summary of Feedback Notes:</b></u></p>
+<p><b>Name of State/ UT:</b> {{ g.state|default:"—" }}</p>
+<p><b>Regular Session:</b> {{ g.topic_title }}</p>
+<p><b>No. of officers who have written feedback note on this topic:</b> {{ g.officers }}</p>
+<p><b>No. of probationers who have written feedback note on this topic:</b> {{ g.probationers }}</p>
+<p><b>Names of officers who have written feedback note on this topic (in alphabetic order):</b></p>
+<table class="summary">
+  <thead><tr><th style="width:12%">S.No.</th><th style="width:40%">Name</th><th>Current Posting</th></tr></thead>
+  <tbody>
+  {% for r in g.rows %}
+    <tr><td class="c">{{ forloop.counter }}</td><td>{{ r.name }}</td><td>{{ r.current_posting }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>

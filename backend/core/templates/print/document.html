@@ -1,0 +1,36 @@
+{% load static print_extras %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{{ title }}</title>
+<style>{% include "print/print.css" %}</style>
+</head>
+<body>
+<div class="toolbar">
+  <button onclick="window.close(); if (history.length > 1) history.back()">Close</button>
+  <button class="primary" onclick="window.print()">Print / Save as PDF</button>
+  <span>{{ count }} note{{ count|pluralize }}</span>
+  <span class="note">In the print dialog choose paper A4, margins "Default", and turn off "Headers and footers".</span>
+</div>
+
+{% for s in sheets %}
+<table class="sheet">
+  <thead><tr><td>
+    <div class="doc-header">
+      <img src="{% static 'logo.png' %}" alt="NITI Aayog">
+      <div class="doc-title">Sixth National Conference of Chief Secretaries<br>{% if s.summary %}Summary of Feedback Notes{% else %}Feedback Note{% endif %}</div>
+    </div>
+  </td></tr></thead>
+  <tbody><tr><td>
+  {% if s.summary %}
+    {% include "print/summary.html" with g=s %}
+  {% else %}
+    {% include "print/note.html" with n=s.note instructions=instructions %}
+  {% endif %}
+  </td></tr></tbody>
+</table>
+{% endfor %}
+</body>
+</html>
