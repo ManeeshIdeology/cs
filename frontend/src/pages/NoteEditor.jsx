@@ -4,7 +4,7 @@ import { ArrowLeft, Check, CheckCircle2, CloudOff, Eye, ListChecks, Loader2, Sav
 import { api } from '../api'
 import { TOPIC_ICON } from '../components/Layout'
 import { Alert, Button, Choices, PageLoader, SelectField, StatusPill, TextField } from '../components/ui'
-import { SERVICE_OPTIONS, batchOptions } from '../components/OfficerFields'
+import { SERVICE_OPTIONS, batchOptions, validBatch } from '../components/OfficerFields'
 import { fmtDate, useApp, useToast } from '../context'
 
 const OFFICER = ['name', 'designation', 'batch', 'service_status', 'current_posting']
@@ -61,7 +61,7 @@ export default function NoteEditor() {
         if (id) {
           const n = await api.get(`/notes/${id}/`)
           if (!alive) return
-          setV(n)
+          setV({ ...n, batch: validBatch(meta, n.batch) }) // an invalid old batch shows blank and must be re-picked
           lastSent.current = signature(n)
           setStatus(n.status)
           setSave({ state: 'saved', at: new Date(n.updated_at) })
@@ -73,7 +73,7 @@ export default function NoteEditor() {
           if (mine.length >= meta.max_notes || !meta.topics.some((t) => t.key === topicParam)) return setRedirect('/notes')
           setUsed(mine.map((n) => n.topic))
           setV({
-            topic: topicParam, name: user.name, designation: user.designation, batch: user.batch,
+            topic: topicParam, name: user.name, designation: user.designation, batch: validBatch(meta, user.batch),
             service_status: user.service_status, training_institute: user.training_institute,
             current_posting: user.current_posting, policy_gaps: '', potential_solutions: '', best_practices: '',
           })
@@ -323,7 +323,7 @@ export default function NoteEditor() {
             <div className="form-grid" style={{ marginTop: 16 }}>
               <div className="full"><TextField label="Name" autoComplete="name" {...bind('name')} /></div>
               <TextField label="Designation" {...bind('designation')} />
-              <SelectField label="Batch" options={batchOptions(meta, v.batch)} placeholder="Select batch" {...bind('batch')} />
+              <SelectField label="Batch" options={batchOptions(meta)} placeholder="Select batch" {...bind('batch')} />
               <div className="full">
                 <Choices label="Current service status" name="service_status" value={v.service_status} onChange={(x) => set('service_status', x)} options={SERVICE_OPTIONS} error={err('service_status')} />
               </div>

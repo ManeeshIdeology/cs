@@ -3,7 +3,7 @@ from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.validators import ProhibitSurrogateCharactersValidator
 
-from core.constants import MAX_NOTES_PER_USER, TOPIC_TITLES
+from core.constants import BATCH_YEARS, MAX_NOTES_PER_USER, TOPIC_TITLES
 
 from .models import Note
 
@@ -56,6 +56,12 @@ class NoteSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "name": {"required": False},
         }
+
+    def validate_batch(self, v):
+        unchanged = self.instance is not None and v == self.instance.batch  # legacy rows may be saved as they are
+        if v and v not in BATCH_YEARS and not unchanged:
+            raise serializers.ValidationError("Choose your batch year (1992 to 2026).")
+        return v
 
     def get_topic_title(self, obj):
         return TOPIC_TITLES.get(obj.topic, "")

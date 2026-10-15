@@ -5,9 +5,11 @@ export const SERVICE_OPTIONS = [
   { value: 'Confirmed', label: 'Confirmed', hint: 'Confirmed in service' },
 ]
 
-/** 2026 ... 1992, plus the officer's existing value if it is an older free-text entry. */
-export const batchOptions = (meta, current) =>
-  current && !meta.batches.includes(current) ? [current, ...meta.batches] : meta.batches
+/** The batch years offered (2026 ... 1992). An old value outside this list (e.g. a typo like 2029) is NOT kept. */
+export const batchOptions = (meta) => meta.batches
+
+/** Returns the batch if it is a valid choice, otherwise '' so the person has to pick one. */
+export const validBatch = (meta, batch) => (meta.batches.includes(batch) ? batch : '')
 
 /** Officer detail inputs shared by sign-up and profile. `err(name)` returns the error text for a field. */
 export default function OfficerFields({ values, set, err, meta, withState = true }) {
@@ -19,7 +21,7 @@ export default function OfficerFields({ values, set, err, meta, withState = true
   return (
     <>
       <TextField label="Designation" placeholder="e.g. District Collector" autoComplete="organization-title" {...bind('designation')} />
-      <SelectField label="Batch" options={batchOptions(meta, values.batch)} placeholder="Select batch" {...bind('batch')} />
+      <SelectField label="Batch" options={batchOptions(meta)} placeholder="Select batch" {...bind('batch')} />
       <div className="full">
         <Choices
           label="Current service status"

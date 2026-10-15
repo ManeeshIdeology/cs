@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { KeyRound, Save } from 'lucide-react'
 import { api } from '../api'
-import OfficerFields from '../components/OfficerFields'
+import OfficerFields, { validBatch } from '../components/OfficerFields'
 import { Alert, Button, PasswordField, TextField } from '../components/ui'
 import { useApp, useToast } from '../context'
 
@@ -10,7 +10,7 @@ const errOf = (errors) => (k) => (Array.isArray(errors[k]) ? errors[k][0] : erro
 function ProfileForm() {
   const { user, setUser, meta } = useApp()
   const toast = useToast()
-  const [v, setV] = useState({ ...user })
+  const [v, setV] = useState(() => ({ ...user, batch: validBatch(meta, user.batch) }))
   const [errors, setErrors] = useState({})
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)

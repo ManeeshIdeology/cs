@@ -511,3 +511,18 @@ class PerformanceAndHardeningTests(Base):
         from django.contrib.auth.hashers import identify_hasher
 
         self.assertTrue(identify_hasher(legacy).must_update(legacy))
+
+
+class BatchOnNotesTests(Base):
+    def test_note_rejects_future_or_unknown_batch_but_keeps_unchanged_legacy_value(self):
+        user = make_user()
+        self.login(user)
+        bad = self.c.post("/api/notes/", {**BODY, "topic": "data", "batch": "2029"}, format="json")
+        self.assertEqual(bad.status_code, 400)
+        self.assertIn("batch", bad.json()["fields"])
+        legacy = Note.objects.create(user=user, topic="geo", name="Asha", batch="2029")  # old data
+        same = self.c.patch(f"/api/notes/{legacy.pk}/", {"batch": "2029", "policy_gaps": "x"}, format="json")
+        self.assertEqual(same.status_code, 200)  # untouched legacy value is allowed
+        fixed = self.c.patch(f"/api/notes/{legacy.pk}/", {"batch": "2015"}, format="json")
+        self.assertEqual(fixed.status_code, 200)
+        self.assertEqual(self.c.patch(f"/api/notes/{legacy.pk}/", {"batch": "2030"}, format="json").status_code, 400)
