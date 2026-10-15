@@ -1,3 +1,4 @@
+from django.core import mail
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from rest_framework.test import APIClient
@@ -253,3 +254,73 @@ class AdminAndPrintTests(Base):
         self.assertEqual(self.c.get("/print/?topic=data").status_code, 403)
         self.login(self.admin)
         self.assertEqual(self.c.get("/print/").status_code, 400)
+
+
+class PasswordResetTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.user = make_user()
+
+    def request_reset(self, email="asha@x.in"):
+        with self.settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend"):
+            from unittest import mock
+
+            # run the "background" send synchronously so the test can read the outbox
+            with mock.patch("accounts.views.send_password_reset_email", side_effect=lambda r, u: __import__("accounts.emails", fromlist=["x"]).send_password_reset_email(r, u, background=False)):
+                return self.c.post("/api/auth/password-reset/", {"email": email}, format="json")
+
+    def token_from_mail(self):
+        import re
+
+        body = mail.outbox[-1].body
+        return re.search(r"/reset-password/([^/\s]+)/([^/\s]+)", body).groups()
+
+    def test_unknown_and_known_emails_get_the_same_answer(self):
+        a = self.request_reset("nobody@x.in")
+        n_after_unknown = len(mail.outbox)
+        b = self.request_reset("ASHA@x.in")
+        self.assertEqual((a.status_code, a.json()), (b.status_code, b.json()))
+        self.assertEqual(n_after_unknown, 0)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["asha@x.in"])
+
+    def test_inactive_user_gets_no_mail(self):
+        User.objects.filter(pk=self.user.pk).update(is_active=False)
+        self.assertEqual(self.request_reset().status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_email_contains_working_link_and_html_part(self):
+        self.request_reset()
+        msg = mail.outbox[0]
+        self.assertIn("Reset your password", msg.subject)
+        self.assertTrue(msg.alternatives and "Set a new password" in msg.alternatives[0][0])
+        uid, token = self.token_from_mail()
+        r = self.c.post("/api/auth/password-reset/confirm/", {"uid": uid, "token": token, "new_password": "Brand-New-Pass!8"}, format="json")
+        self.assertEqual(r.status_code, 200, r.content)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("Brand-New-Pass!8"))
+        # a link works once
+        again = self.c.post("/api/auth/password-reset/confirm/", {"uid": uid, "token": token, "new_password": "Another-Pass!77"}, format="json")
+        self.assertEqual(again.status_code, 400)
+        self.assertIn("invalid or has expired", again.json()["detail"])
+
+    def test_bad_token_and_weak_password_are_rejected(self):
+        self.request_reset()
+        uid, token = self.token_from_mail()
+        bad = self.c.post("/api/auth/password-reset/confirm/", {"uid": uid, "token": "x" * 20, "new_password": "Brand-New-Pass!8"}, format="json")
+        self.assertEqual(bad.status_code, 400)
+        weak = self.c.post("/api/auth/password-reset/confirm/", {"uid": uid, "token": token, "new_password": "12345678"}, format="json")
+        self.assertEqual(weak.status_code, 400)
+        self.assertIn("new_password", weak.json()["fields"])
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(PROFILE["password"]))  # unchanged
+
+    def test_site_url_setting_is_used_in_links(self):
+        with self.settings(SITE_URL="https://feedback.example.gov.in"):
+            self.request_reset()
+        self.assertIn("https://feedback.example.gov.in/reset-password/", mail.outbox[0].body)
+
+    def test_reset_requires_csrf(self):
+        strict = Client(enforce_csrf_checks=True)
+        r = strict.post("/api/auth/password-reset/", {"email": "asha@x.in"}, content_type="application/json")
+        self.assertEqual(r.status_code, 403)

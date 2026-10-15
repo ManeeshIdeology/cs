@@ -40,7 +40,7 @@ export default function Login() {
         <Button type="submit" size="lg" block loading={busy} icon={LogIn} disabled={!form.email || !form.password}>
           Log in
         </Button>
-        <p className="auth-help">Forgot your password? Ask the portal administrator to reset it.</p>
+        <p className="auth-help"><Link to="/forgot-password">Forgot your password?</Link></p>
       </form>
       <p className="auth-switch">
         New here? <Link to="/signup">Create an account</Link>

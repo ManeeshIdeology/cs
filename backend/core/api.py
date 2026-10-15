@@ -21,6 +21,8 @@ def exception_handler(exc, context):
         return None
     data = response.data
     if isinstance(data, dict) and set(data) == {"detail"}:
+        if not isinstance(data["detail"], str):  # e.g. ValidationError({"detail": "..."})
+            response.data = {"detail": _first_message(data["detail"])}
         return response
     if isinstance(data, dict):
         fields = {k: v if isinstance(v, list) else [v] for k, v in data.items() if k != "non_field_errors"}

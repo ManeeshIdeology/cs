@@ -70,6 +70,7 @@ Free hosting on PythonAnywhere: see **[DEPLOY_PYTHONANYWHERE.md](DEPLOY_PYTHONAN
 ## Rules implemented
 
 * **Sign up / log in** with email + password (min. 8, common/numeric passwords rejected). Login/sign-up are rate-limited and CSRF-protected.
+* **Forgot password:** e-mails a one-hour, single-use reset link (Gmail SMTP via `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` env vars; the form never reveals whether an address is registered). Without those variables the e-mail is printed to the server console, which is handy in development.
 * One person can file **1–3 notes, one per topic**: enforced in the API *and* by a database unique constraint on (user, topic).
 * Drafts may be incomplete (and **autosave**); **Submit** requires Section 1 and all three answers. A submitted note must stay complete when edited
   (use "Move back to draft" to edit freely).
@@ -81,14 +82,14 @@ Free hosting on PythonAnywhere: see **[DEPLOY_PYTHONANYWHERE.md](DEPLOY_PYTHONAN
 
 ## API (JSON, under `/api/`)
 
-`GET csrf/` · `GET meta/` · `POST auth/signup/` · `POST auth/login/` · `POST auth/logout/` · `GET|PATCH auth/me/` · `POST auth/password/`
+`GET csrf/` · `GET meta/` · `POST auth/signup/` · `POST auth/login/` · `POST auth/logout/` · `GET|PATCH auth/me/` · `POST auth/password/` · `POST auth/password-reset/` · `POST auth/password-reset/confirm/`
 `GET|POST notes/` · `GET|PATCH|DELETE notes/<id>/` — user's own notes (`submit: true|false` controls status)
 `GET admin/stats/` · `GET admin/notes/` · `GET admin/notes/<id>/` · `GET admin/notes/export.csv` · `GET admin/users/` — admin only
 
 ## Tests
 
 ```bash
-cd backend && python manage.py test        # 26 tests: auth, 3-note rule, submit validation, permissions, admin API, print, CSV
+cd backend && python manage.py test        # 32 tests: auth, 3-note rule, submit validation, permissions, admin API, print, CSV
 ```
 
 ## Notes

@@ -30,6 +30,18 @@ Web tab -> **Add a new web app** -> **Manual configuration** -> choose the same 
 
 No "Static files" mapping is needed - WhiteNoise serves everything (including the React build).
 
+## 3b. Password-reset e-mail (Gmail)
+The "Forgot password?" link e-mails a one-hour reset link. In the same WSGI file set (see the template):
+
+```python
+os.environ["DJANGO_SITE_URL"] = "https://yourusername.pythonanywhere.com"
+os.environ["EMAIL_HOST_USER"] = "your-sender@gmail.com"
+os.environ["EMAIL_HOST_PASSWORD"] = "<Google app password>"
+```
+Create the app password at https://myaccount.google.com/apppasswords (needs 2-step verification on that Google account).
+Without these two variables, no e-mail is sent (messages are only printed to the log). If your network blocks port 587 you can add
+`os.environ["EMAIL_PORT"] = "465"`. **Never put the password in git** - this repository is public.
+
 ## 4. Database and admin user
 In the Bash console (same env vars as the WSGI file):
 

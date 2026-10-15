@@ -10,8 +10,11 @@ from rest_framework.views import APIView
 
 from core.constants import MAX_NOTES_PER_USER, SERVICE_STATUSES, STATES_UTS, TOPICS
 
+from .emails import send_password_reset_email
+from .models import User
 from .serializers import (
-    LoginSerializer, PasswordChangeSerializer, ProfileSerializer, SignupSerializer, UserSerializer,
+    LoginSerializer, PasswordChangeSerializer, PasswordResetConfirmSerializer, PasswordResetRequestSerializer,
+    ProfileSerializer, SignupSerializer, UserSerializer,
 )
 
 
@@ -101,3 +104,27 @@ class PasswordChangeView(APIView):
         request.user.save(update_fields=["password"])
         update_session_auth_hash(request, request.user)  # keep this session logged in
         return Response({"detail": "Password updated."})
+
+
+class PasswordResetRequestView(PublicAuthView):
+    """Always answers the same way, so the form cannot be used to find out who has an account."""
+
+    throttle_scope = "password_reset"
+
+    def post(self, request):
+        s = PasswordResetRequestSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        user = User.objects.filter(email__iexact=s.validated_data["email"].strip(), is_active=True).first()
+        if user:
+            send_password_reset_email(request, user)
+        return Response({"detail": "If an account exists for that email, a reset link has been sent."})
+
+
+class PasswordResetConfirmView(PublicAuthView):
+    def post(self, request):
+        s = PasswordResetConfirmSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        user = s.validated_data["user"]
+        user.set_password(s.validated_data["new_password"])
+        user.save(update_fields=["password"])  # also invalidates the token and other sessions' hashes
+        return Response({"detail": "Your password has been changed. You can now log in."})

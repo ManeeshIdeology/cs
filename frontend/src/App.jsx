@@ -5,6 +5,8 @@ import { AppShell } from './components/Layout'
 import { Alert, PageLoader } from './components/ui'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
 import NotFound from './pages/NotFound'
@@ -48,6 +50,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Guest><Login /></Guest>} />
         <Route path="/signup" element={<Guest><Signup /></Guest>} />
+        <Route path="/forgot-password" element={<Guest><ForgotPassword /></Guest>} />
+        <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
         <Route element={user ? <AppShell /> : <Navigate to="/login" replace />}>
           <Route index element={user ? <Navigate to={home(user)} replace /> : null} />
           <Route path="/notes" element={<Protected admin={false}><Dashboard /></Protected>} />

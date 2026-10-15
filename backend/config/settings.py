@@ -7,6 +7,10 @@ Configuration comes from environment variables so the same code runs in developm
     DJANGO_ALLOWED_HOSTS      comma separated, e.g. "feedback.example.gov.in"
     DJANGO_CSRF_TRUSTED       comma separated origins, e.g. "https://feedback.example.gov.in"
     DJANGO_DB_FILE            path of the SQLite file (default: backend/db.sqlite3)
+    DJANGO_SITE_URL           public address used in e-mailed links, e.g. "https://feedback.example.gov.in"
+    EMAIL_HOST_USER           SMTP login / sender (Gmail address). With EMAIL_HOST_PASSWORD it switches on real e-mail;
+    EMAIL_HOST_PASSWORD       otherwise e-mails are printed to the console (development). Use a Gmail *app password*.
+    EMAIL_PORT                587 (default, STARTTLS) or 465 (SSL)
 """
 import os
 from pathlib import Path
@@ -99,6 +103,27 @@ CSRF_COOKIE_SAMESITE = "Lax"
 # The React app reads the csrftoken cookie and echoes it in the X-CSRFToken header.
 CSRF_COOKIE_HTTPONLY = False
 
+# ---- E-mail (password reset) ---------------------------------------------------------------
+# Secrets come from the environment only - never commit them.
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "").strip()
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "").replace(" ", "")  # Google shows app passwords in groups
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+# Port 587 = STARTTLS (default). Port 465 = implicit SSL (use it if your network blocks 587).
+EMAIL_USE_SSL = EMAIL_PORT == 465
+EMAIL_USE_TLS = not EMAIL_USE_SSL
+EMAIL_TIMEOUT = 15
+EMAIL_BACKEND = (
+    "django.core.mail.backends.smtp.EmailBackend"
+    if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD
+    else "django.core.mail.backends.console.EmailBackend"
+)
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL") or (
+    f"Feedback Note Portal <{EMAIL_HOST_USER}>" if EMAIL_HOST_USER else "Feedback Note Portal <no-reply@localhost>"
+)
+SITE_URL = os.environ.get("DJANGO_SITE_URL", "").rstrip("/")
+PASSWORD_RESET_TIMEOUT = 60 * 60  # reset links are valid for one hour
+
 # ---- Internationalisation ---------------------------------------------------------------------
 LANGUAGE_CODE = "en-in"
 TIME_ZONE = "Asia/Kolkata"
@@ -127,7 +152,10 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
-    "DEFAULT_THROTTLE_RATES": {"auth": os.environ.get("DJANGO_AUTH_THROTTLE", "20/min")},
+    "DEFAULT_THROTTLE_RATES": {
+        "auth": os.environ.get("DJANGO_AUTH_THROTTLE", "20/min"),
+        "password_reset": os.environ.get("DJANGO_RESET_THROTTLE", "10/hour"),
+    },
     "EXCEPTION_HANDLER": "core.api.exception_handler",
 }
 

@@ -18,6 +18,10 @@ os.environ["DJANGO_SECRET_KEY"] = "PASTE-A-LONG-RANDOM-STRING-HERE"
 os.environ["DJANGO_ALLOWED_HOSTS"] = f"{USERNAME}.pythonanywhere.com"
 os.environ["DJANGO_CSRF_TRUSTED"] = f"https://{USERNAME}.pythonanywhere.com"
 os.environ["DJANGO_SSL_REDIRECT"] = "0"  # enable "Force HTTPS" on the Web tab instead
+# Password-reset e-mail (Gmail). Use a Google "app password", not your normal password. Never commit real values.
+os.environ["DJANGO_SITE_URL"] = f"https://{USERNAME}.pythonanywhere.com"
+os.environ["EMAIL_HOST_USER"] = "your-sender@gmail.com"
+os.environ["EMAIL_HOST_PASSWORD"] = "PASTE-GOOGLE-APP-PASSWORD-HERE"
 os.environ["DJANGO_DB_FILE"] = f"/home/{USERNAME}/cs-data/db.sqlite3"  # outside the git checkout
 os.environ["DJANGO_SETTINGS_MODULE"] = "config.settings"
 

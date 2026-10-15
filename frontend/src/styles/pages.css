@@ -282,3 +282,8 @@
 /* Admin table: compact action buttons on desktop so nothing is clipped */
 @media (min-width: 761px) { .row-actions .lbl { display: none; } .row-actions .btn-secondary { width: 36px; padding: 0; } }
 .table td.row-actions { width: 1%; }
+
+.auth-help a { font-weight: 700; }
+.done-icon { width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; background: var(--green-50); color: var(--green-700); box-shadow: inset 0 0 0 2px var(--green-100); margin-bottom: 18px; }
+.done-icon.warn { background: var(--saffron-50); color: var(--saffron-700); box-shadow: inset 0 0 0 2px var(--saffron-100); }
+.done-icon svg { width: 28px; height: 28px; }
