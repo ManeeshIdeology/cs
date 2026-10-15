@@ -324,3 +324,95 @@ class PasswordResetTests(Base):
         strict = Client(enforce_csrf_checks=True)
         r = strict.post("/api/auth/password-reset/", {"email": "asha@x.in"}, content_type="application/json")
         self.assertEqual(r.status_code, 403)
+
+
+class AdminUserManagementTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.admin = User.objects.create_superuser("admin@x.in", "Adm1n-Pass!9")
+        self.login(self.admin)
+
+    OFFICER = dict(
+        email="new.officer@x.in", name="New Officer", designation="Collector", batch="2018", service_status="Confirmed",
+        current_posting="Kochi", state_ut="Kerala", password="Str0ng-Pass!9",
+    )
+
+    def create(self, **over):
+        return self.c.post("/api/admin/users/", {**self.OFFICER, **over}, format="json")
+
+    def test_meta_exposes_defaults(self):
+        d = APIClient().get("/api/meta/").json()["defaults"]
+        self.assertEqual(d, {"service_status": "Confirmed", "state_ut": "Kerala"})
+
+    def test_admin_creates_officer_with_password_who_can_log_in(self):
+        r = self.create()
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(r.json()["email"], "new.officer@x.in")
+        self.assertFalse(r.json()["is_admin"])
+        login = APIClient().post("/api/auth/login/", {"email": "NEW.officer@x.in", "password": "Str0ng-Pass!9"}, format="json")
+        self.assertEqual(login.status_code, 200)
+
+    def test_invite_without_password_emails_a_working_reset_link(self):
+        import re
+        from unittest import mock
+
+        with self.settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend"):
+            sync = lambda r, u: __import__("accounts.emails", fromlist=["x"]).send_password_reset_email(r, u, background=False)
+            with mock.patch("notes.views.send_password_reset_email", side_effect=sync):
+                r = self.create(password="", send_invite=True)
+        self.assertEqual(r.status_code, 201, r.content)
+        user = User.objects.get(email="new.officer@x.in")
+        self.assertFalse(user.has_usable_password())
+        self.assertEqual(len(mail.outbox), 1)
+        uid, token = re.search(r"/reset-password/([^/\s]+)/([^/\s]+)", mail.outbox[0].body).groups()
+        ok = APIClient().post("/api/auth/password-reset/confirm/", {"uid": uid, "token": token, "new_password": "Chosen-Pass!42"}, format="json")
+        self.assertEqual(ok.status_code, 200, ok.content)
+
+    def test_password_or_invite_is_required(self):
+        r = self.create(password="")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("password", r.json()["fields"])
+
+    def test_validation_duplicate_email_weak_password_and_missing_officer_fields(self):
+        make_user("dup@x.in")
+        self.assertIn("email", self.create(email="DUP@x.in").json()["fields"])
+        self.assertIn("password", self.create(password="12345678").json()["fields"])
+        bad = self.create(designation="", state_ut="")
+        self.assertEqual(bad.status_code, 400)
+        self.assertIn("designation", bad.json()["fields"])
+        self.assertIn("state_ut", bad.json()["fields"])
+
+    def test_admin_account_needs_no_officer_details(self):
+        r = self.c.post("/api/admin/users/", {"email": "second@x.in", "name": "Second Admin", "is_admin": True, "password": "Str0ng-Pass!9"}, format="json")
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertTrue(r.json()["is_admin"])
+
+    def test_only_admins_can_create_or_delete(self):
+        victim = make_user("v@x.in", name="Victim")
+        self.login(make_user("o@x.in", name="Other"))
+        self.assertEqual(self.create().status_code, 403)
+        self.assertEqual(self.c.delete(f"/api/admin/users/{victim.pk}/").status_code, 403)
+        self.assertTrue(User.objects.filter(pk=victim.pk).exists())
+
+    def test_delete_removes_user_and_their_notes(self):
+        u = make_user("v@x.in", name="Victim")
+        Note.objects.create(user=u, topic="data", name="Victim")
+        Note.objects.create(user=u, topic="geo", name="Victim")
+        keep = make_user("k@x.in", name="Keeper")
+        Note.objects.create(user=keep, topic="data", name="Keeper")
+        r = self.c.delete(f"/api/admin/users/{u.pk}/")
+        self.assertEqual(r.status_code, 204)
+        self.assertFalse(User.objects.filter(pk=u.pk).exists())
+        self.assertEqual(Note.objects.filter(user_id=u.pk).count(), 0)
+        self.assertEqual(Note.objects.filter(user=keep).count(), 1)
+
+    def test_cannot_delete_yourself_or_the_last_admin(self):
+        self.assertEqual(self.c.delete(f"/api/admin/users/{self.admin.pk}/").status_code, 400)
+        other = User.objects.create_superuser("admin2@x.in", "Adm1n-Pass!9")
+        # with two admins, one may remove the other...
+        self.assertEqual(self.c.delete(f"/api/admin/users/{other.pk}/").status_code, 204)
+        # ...and the remaining one is protected
+        self.assertTrue(User.objects.filter(pk=self.admin.pk).exists())
+
+    def test_delete_unknown_user_is_404(self):
+        self.assertEqual(self.c.delete("/api/admin/users/99999/").status_code, 404)

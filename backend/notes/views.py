@@ -2,14 +2,15 @@ import csv
 
 from django.db.models import Count, Q
 from django.http import HttpResponse
-from rest_framework import generics, viewsets
+from rest_framework import generics, status, viewsets
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import User
-from accounts.serializers import AdminUserSerializer
+from accounts.emails import send_password_reset_email
+from accounts.serializers import AdminUserCreateSerializer, AdminUserSerializer
 from core.constants import STATES_UTS, TOPIC_TITLES, TOPICS
 
 from .models import Note
@@ -95,10 +96,12 @@ def _safe(v):
     return "'" + v if v[:1] in ("=", "+", "-", "@", "\t", "\r") else v
 
 
-class AdminUserList(generics.ListAPIView):
+class AdminUserList(generics.ListCreateAPIView):
     permission_classes = [IsAdminUser]
     pagination_class = Page
-    serializer_class = AdminUserSerializer
+
+    def get_serializer_class(self):
+        return AdminUserCreateSerializer if self.request.method == "POST" else AdminUserSerializer
 
     def get_queryset(self):
         qs = User.objects.annotate(
@@ -111,6 +114,32 @@ class AdminUserList(generics.ListAPIView):
             q = p["q"].strip()
             qs = qs.filter(Q(name__icontains=q) | Q(email__icontains=q) | Q(current_posting__icontains=q))
         return qs.order_by("name", "id")
+
+    def create(self, request, *args, **kwargs):
+        s = self.get_serializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        invite = s.validated_data.get("send_invite") and not s.validated_data.get("password")
+        user = s.save()
+        if invite:
+            send_password_reset_email(request, user)  # same one-hour link as "Forgot password"
+        user.notes_total = user.notes_submitted = 0
+        return Response(AdminUserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+
+class AdminUserDetail(generics.DestroyAPIView):
+    """Delete an account together with all of its notes."""
+
+    permission_classes = [IsAdminUser]
+    queryset = User.objects.all()
+
+    def destroy(self, request, *args, **kwargs):
+        target = self.get_object()
+        if target.pk == request.user.pk:
+            return Response({"detail": "You cannot delete your own account."}, status=status.HTTP_400_BAD_REQUEST)
+        if target.is_staff and User.objects.filter(is_staff=True, is_active=True).count() <= 1:
+            return Response({"detail": "You cannot delete the last administrator."}, status=status.HTTP_400_BAD_REQUEST)
+        target.delete()  # notes are removed by the cascade
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class AdminStats(APIView):

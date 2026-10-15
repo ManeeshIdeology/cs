@@ -14,6 +14,9 @@ PROBATIONER = "Probationer"
 CONFIRMED = "Confirmed"
 SERVICE_STATUSES = [PROBATIONER, CONFIRMED]
 
+DEFAULT_SERVICE_STATUS = CONFIRMED
+DEFAULT_STATE_UT = "Kerala"
+
 OTHER_STATE = "Government of India / National Institute"
 STATES_UTS = [
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat",

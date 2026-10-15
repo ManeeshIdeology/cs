@@ -143,3 +143,69 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
             raise serializers.ValidationError({"new_password": list(e.messages)})
         attrs["user"] = user
         return attrs
+
+
+class AdminUserCreateSerializer(ProfileValidationMixin, serializers.ModelSerializer):
+    """Admin adds an account. Either set a password now, or e-mail the person a link to choose their own."""
+
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True, trim_whitespace=False)
+    send_invite = serializers.BooleanField(write_only=True, required=False, default=False)
+    is_admin = serializers.BooleanField(write_only=True, required=False, default=False)
+
+    class Meta:
+        model = User
+        fields = ["email", "password", "send_invite", "is_admin", *PROFILE_FIELDS]
+        extra_kwargs = {
+            "designation": {"required": False, "allow_blank": True},
+            "batch": {"required": False, "allow_blank": True},
+            "current_posting": {"required": False, "allow_blank": True},
+            "training_institute": {"required": False, "allow_blank": True},
+            "service_status": {"required": False, "allow_blank": True},
+            "state_ut": {"required": False, "allow_blank": True},
+        }
+
+    def validate_service_status(self, v):
+        return v if v == "" else super().validate_service_status(v)
+
+    def validate_state_ut(self, v):
+        return v if v == "" else super().validate_state_ut(v)
+
+    def validate_email(self, v):
+        v = v.strip().lower()
+        if User.objects.filter(email__iexact=v).exists():
+            raise serializers.ValidationError("An account with this email already exists.")
+        return v
+
+    def validate(self, attrs):
+        errors = {}
+        if not attrs.get("is_admin"):
+            for f in ["designation", "batch", "service_status", "current_posting", "state_ut"]:
+                if not str(attrs.get(f, "")).strip():
+                    errors[f] = ["This field is required."]
+        password = attrs.get("password", "")
+        if password:
+            if len(password) < 8:
+                errors["password"] = ["Use at least 8 characters."]
+            else:
+                probe = User(**{k: v for k, v in attrs.items() if k not in ("password", "send_invite", "is_admin")})
+                try:
+                    password_validation.validate_password(password, probe)
+                except DjangoValidationError as e:
+                    errors["password"] = list(e.messages)
+        elif not attrs.get("send_invite"):
+            errors["password"] = ["Set a password, or choose to e-mail them a link to set their own."]
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
+
+    def create(self, validated):
+        password = validated.pop("password", "")
+        validated.pop("send_invite", None)
+        is_admin = validated.pop("is_admin", False)
+        user = User(is_staff=is_admin, **validated)
+        if password:
+            user.set_password(password)
+        else:
+            user.set_unusable_password()
+        user.save()
+        return user

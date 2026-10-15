@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from core.constants import MAX_NOTES_PER_USER, SERVICE_STATUSES, STATES_UTS, TOPICS
+from core.constants import DEFAULT_SERVICE_STATUS, DEFAULT_STATE_UT, MAX_NOTES_PER_USER, SERVICE_STATUSES, STATES_UTS, TOPICS
 
 from .emails import send_password_reset_email
 from .models import User
@@ -41,6 +41,7 @@ class MetaView(APIView):
                 "states": STATES_UTS,
                 "service_statuses": SERVICE_STATUSES,
                 "max_notes": MAX_NOTES_PER_USER,
+                "defaults": {"service_status": DEFAULT_SERVICE_STATUS, "state_ut": DEFAULT_STATE_UT},
             }
         )
 

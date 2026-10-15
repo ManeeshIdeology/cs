@@ -138,7 +138,7 @@ export function Empty({ icon: Icon, title, children, action }) {
 }
 
 /* Focus-trapped modal that closes on Escape / backdrop click. */
-export function Modal({ open, onClose, children, side }) {
+export function Modal({ open, onClose, children, side, wide }) {
   const ref = useRef(null)
   useEffect(() => {
     if (!open) return
@@ -156,7 +156,7 @@ export function Modal({ open, onClose, children, side }) {
   if (!open) return null
   return (
     <div className={cx('overlay', side && 'right')} onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}>
-      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" className={side ? 'drawer' : 'modal'} style={{ outline: 'none' }}>
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" className={side ? 'drawer' : cx('modal', wide && 'wide')} style={{ outline: 'none' }}>
         {children}
       </div>
     </div>

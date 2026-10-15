@@ -78,18 +78,20 @@ Free hosting on PythonAnywhere: see **[DEPLOY_PYTHONANYWHERE.md](DEPLOY_PYTHONAN
 * **Admin printing** (`/print/…`, Print / Save as PDF from the browser, A4, 1-inch margins, Times New Roman):
   single note, selected notes, or compiled per topic → *Summary page per State/UT* + notes in alphabetical order of officer name.
   Options: omit the "Instructions" block. Compiled prints include submitted notes only.
+* **Admin user management** (Users page): *Add user* (officer or administrator; either set a password or e-mail them a set-password link) and *Delete user* (removes the account and all its notes after a confirmation; you cannot delete yourself or the last administrator).
+* Sign-up and the admin form default to **Confirmed** and **Kerala** (`DEFAULT_SERVICE_STATUS`, `DEFAULT_STATE_UT` in `backend/core/constants.py`).
 * Admin also gets filters/search, a note viewer, user list, overview charts and **CSV export** (formula-injection safe).
 
 ## API (JSON, under `/api/`)
 
 `GET csrf/` · `GET meta/` · `POST auth/signup/` · `POST auth/login/` · `POST auth/logout/` · `GET|PATCH auth/me/` · `POST auth/password/` · `POST auth/password-reset/` · `POST auth/password-reset/confirm/`
 `GET|POST notes/` · `GET|PATCH|DELETE notes/<id>/` — user's own notes (`submit: true|false` controls status)
-`GET admin/stats/` · `GET admin/notes/` · `GET admin/notes/<id>/` · `GET admin/notes/export.csv` · `GET admin/users/` — admin only
+`GET admin/stats/` · `GET|POST admin/users/` · `DELETE admin/users/<id>/` · `GET admin/notes/` · `GET admin/notes/<id>/` · `GET admin/notes/export.csv` · `GET admin/users/` — admin only
 
 ## Tests
 
 ```bash
-cd backend && python manage.py test        # 32 tests: auth, 3-note rule, submit validation, permissions, admin API, print, CSV
+cd backend && python manage.py test        # 42 tests: auth, 3-note rule, submit validation, permissions, admin API, print, CSV
 ```
 
 ## Notes

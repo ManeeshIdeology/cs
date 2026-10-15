@@ -16,7 +16,7 @@ const STEP2 = ['designation', 'batch', 'service_status', 'current_posting', 'sta
 export default function Signup() {
   const { signup, meta } = useApp()
   const [step, setStep] = useState(1)
-  const [v, setV] = useState(EMPTY)
+  const [v, setV] = useState(() => ({ ...EMPTY, ...meta.defaults }))
   const [errors, setErrors] = useState({})
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
