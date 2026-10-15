@@ -3,7 +3,8 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Check, CheckCircle2, CloudOff, Eye, ListChecks, Loader2, Save, Send, Undo2, UserRound } from 'lucide-react'
 import { api } from '../api'
 import { TOPIC_ICON } from '../components/Layout'
-import { Alert, Button, PageLoader, Segmented, StatusPill, TextField } from '../components/ui'
+import { Alert, Button, Choices, PageLoader, StatusPill, TextField } from '../components/ui'
+import { SERVICE_OPTIONS } from '../components/OfficerFields'
 import { fmtDate, useApp, useToast } from '../context'
 
 const OFFICER = ['name', 'designation', 'batch', 'service_status', 'current_posting']
@@ -242,6 +243,16 @@ export default function NoteEditor() {
         </div>
       </div>
 
+      <div className="editor-progress" aria-live="polite">
+        <div className="row">
+          <span>{Object.values(done).filter(Boolean).length} of {steps.length} sections complete</span>
+          <span className={save.state === 'saved' && !dirty ? 'saved' : ''}>
+            {save.state === 'saving' ? 'Saving…' : save.state === 'error' ? 'Not saved' : dirty ? (submitted ? 'Unsaved changes' : 'Saving shortly…') : save.at ? `Saved ${time(save.at)}` : ''}
+          </span>
+        </div>
+        <div className="bar"><i className="b-ok" style={{ width: `${(Object.values(done).filter(Boolean).length / steps.length) * 100}%` }} /></div>
+      </div>
+
       <div className="editor">
         <aside className="editor-nav" aria-label="Sections">
           <h4>Progress</h4>
@@ -303,7 +314,7 @@ export default function NoteEditor() {
               <TextField label="Designation" {...bind('designation')} />
               <TextField label="Batch" {...bind('batch')} />
               <div className="full">
-                <Segmented label="Current service status" name="service_status" value={v.service_status} onChange={(x) => set('service_status', x)} options={meta.service_statuses} error={err('service_status')} />
+                <Choices label="Current service status" name="service_status" value={v.service_status} onChange={(x) => set('service_status', x)} options={SERVICE_OPTIONS} error={err('service_status')} />
               </div>
               <div className="full">
                 <TextField label="Training Institute / Academy" optional hint="If currently undergoing institutional training." {...bind('training_institute')} />
@@ -331,6 +342,7 @@ export default function NoteEditor() {
                 return (
                   <label key={t.key} className={`topic-opt ${on ? 'on' : ''} ${taken || locked ? 'taken' : ''}`}>
                     <input type="radio" name="topic" checked={on} disabled={taken || !isNew} onChange={() => set('topic', t.key)} />
+                    <span className="mark"><Check /></span>
                     <span>
                       <b><Icon size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />{t.title}</b>
                       {taken && <small>You have already filed a note on this topic.</small>}
@@ -372,7 +384,7 @@ export default function NoteEditor() {
           </div>
 
           <div className="action-bar">
-            <Button variant="secondary" icon={Eye} onClick={preview} loading={busy === 'preview'} type="button">Preview print view</Button>
+            <Button variant="secondary" className="preview" icon={Eye} onClick={preview} loading={busy === 'preview'} type="button" aria-label="Preview print view"><span>Preview print view</span></Button>
             <span className="spacer" />
             {submitted ? (
               <>

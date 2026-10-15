@@ -5,10 +5,9 @@ import { TOPIC_ICON } from '../components/Layout'
 import { Alert, PageLoader } from '../components/ui'
 import { useFetch } from '../context'
 
-function Stat({ icon: Icon, tone, value, label }) {
+function Stat({ tone, value, label }) {
   return (
-    <div className="card stat">
-      <span className={`ic ic-${tone}`}><Icon /></span>
+    <div className={`card stat t-${tone}`}>
       <div>
         <b>{value}</b>
         <span>{label}</span>

@@ -44,7 +44,7 @@ export default function AdminUsers() {
         ) : (
           <>
             <div className="table-wrap" style={{ opacity: loading ? 0.6 : 1 }}>
-              <table className="table">
+              <table className="table stack">
                 <thead>
                   <tr><th>Name</th><th>State / UT</th><th>Designation</th><th>Status</th><th>Notes</th><th>Joined</th></tr>
                 </thead>
@@ -60,11 +60,11 @@ export default function AdminUsers() {
                           </div>
                         </div>
                       </td>
-                      <td>{u.state_ut || '—'}</td>
-                      <td>{u.designation || '—'}<div className="cell-sub">{u.current_posting}</div></td>
-                      <td>{u.service_status || '—'}</td>
-                      <td className="nowrap">{u.notes_submitted} submitted <span className="muted">/ {u.notes_total}</span></td>
-                      <td className="nowrap small muted">{fmtDate(u.date_joined)}</td>
+                      <td data-label="State / UT">{u.state_ut || '—'}</td>
+                      <td data-label="Designation">{u.designation || '—'}<div className="cell-sub">{u.current_posting}</div></td>
+                      <td data-label="Service status">{u.service_status || '—'}</td>
+                      <td data-label="Notes" className="nowrap">{u.notes_submitted} submitted <span className="muted">/ {u.notes_total}</span></td>
+                      <td data-label="Joined" className="nowrap small muted">{fmtDate(u.date_joined)}</td>
                     </tr>
                   ))}
                 </tbody>

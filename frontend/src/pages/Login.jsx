@@ -25,13 +25,13 @@ export default function Login() {
 
   return (
     <AuthLayout>
-      <h2>Welcome back</h2>
-      <p className="sub">Log in to write or review your Feedback Notes.</p>
+      <h2>Log in</h2>
+      <p className="sub">Use the email and password you registered with.</p>
       <form onSubmit={submit} noValidate>
         {error && <Alert type="error">{error}</Alert>}
         <TextField
-          label="Email" type="email" autoComplete="username" autoFocus required placeholder="you@example.gov.in"
-          value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
+          label="Email" type="email" inputMode="email" autoComplete="username" autoCapitalize="none" autoFocus required
+          placeholder="name@example.gov.in" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
         />
         <PasswordField
           label="Password" autoComplete="current-password" required
@@ -40,6 +40,7 @@ export default function Login() {
         <Button type="submit" size="lg" block loading={busy} icon={LogIn} disabled={!form.email || !form.password}>
           Log in
         </Button>
+        <p className="auth-help">Forgot your password? Ask the portal administrator to reset it.</p>
       </form>
       <p className="auth-switch">
         New here? <Link to="/signup">Create an account</Link>

@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff, Info, Loader2, X } from 'lucide-react'
+import { AlertCircle, Check, CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff, Info, Loader2, PencilLine, X } from 'lucide-react'
 
 export const cx = (...a) => a.filter(Boolean).join(' ')
 
@@ -80,16 +80,25 @@ export function SelectField({ label, optional, hint, error, options, placeholder
   )
 }
 
-export function Segmented({ label, name, value, onChange, options, error }) {
+/** Radio option cards. options: [{ value, label, hint }] (or plain strings). */
+export function Choices({ label, name, value, onChange, options, error, disabledValues = [] }) {
   return (
     <Field label={label} error={error}>
-      <div className="seg" role="radiogroup" aria-label={label}>
-        {options.map((o) => (
-          <label key={o}>
-            <input type="radio" name={name} value={o} checked={value === o} onChange={() => onChange(o)} />
-            <span>{o}</span>
-          </label>
-        ))}
+      <div className="choices" role="radiogroup" aria-label={label}>
+        {options.map((o) => {
+          const v = typeof o === 'string' ? o : o.value
+          const disabled = disabledValues.includes(v)
+          return (
+            <label key={v} className={cx('choice', disabled && 'is-disabled')}>
+              <input type="radio" name={name} value={v} checked={value === v} disabled={disabled} onChange={() => onChange(v)} />
+              <span className="mark"><Check /></span>
+              <span>
+                <b>{typeof o === 'string' ? o : o.label}</b>
+                {o.hint && <small>{o.hint}</small>}
+              </span>
+            </label>
+          )
+        })}
       </div>
     </Field>
   )
@@ -106,8 +115,8 @@ export function Alert({ type = 'info', children, className }) {
 }
 
 export function StatusPill({ status }) {
-  if (status === 'submitted') return <span className="pill pill-ok">Submitted</span>
-  if (status === 'draft') return <span className="pill pill-draft">Draft</span>
+  if (status === 'submitted') return <span className="pill pill-ok"><Check /> Submitted</span>
+  if (status === 'draft') return <span className="pill pill-draft"><PencilLine /> Draft</span>
   return <span className="pill pill-none">Not started</span>
 }
 
@@ -198,10 +207,10 @@ export function ProgressRing({ value, max, size = 96, stroke = 9 }) {
   return (
     <div className="ring" style={{ width: size, height: size }}>
       <svg width={size} height={size} aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e6ebf5" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e8e3d6" strokeWidth={stroke} />
         <circle
-          cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--primary-600)" strokeWidth={stroke} strokeLinecap="round"
-          strokeDasharray={c} strokeDashoffset={c * (1 - frac)} style={{ transition: 'stroke-dashoffset .6s ease' }}
+          cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--green-600)" strokeWidth={stroke} strokeLinecap="butt"
+          strokeDasharray={c} strokeDashoffset={c * (1 - frac)} style={{ transition: 'stroke-dashoffset .5s ease' }}
         />
       </svg>
       <div className="num">
@@ -217,3 +226,31 @@ export function ProgressRing({ value, max, size = 96, stroke = 9 }) {
 export const CloseButton = (props) => (
   <Button variant="ghost" size="sm" className="btn-icon" icon={X} aria-label="Close" {...props} />
 )
+
+/** 0-4 score from length and character variety (guidance only; the server enforces the real rules). */
+export function passwordScore(pw = '') {
+  if (!pw) return 0
+  let n = 0
+  if (pw.length >= 8) n++
+  if (pw.length >= 12) n++
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) n++
+  if (/\d/.test(pw) && /[^A-Za-z0-9]/.test(pw)) n++
+  return Math.min(4, Math.max(pw.length >= 1 ? 1 : 0, n))
+}
+
+export function StrengthMeter({ password }) {
+  const score = passwordScore(password)
+  const labels = ['', 'Too weak', 'Fair', 'Good', 'Strong']
+  const colors = ['', 'var(--red-700)', 'var(--saffron-600)', 'var(--green-600)', 'var(--green-700)']
+  if (!password) return null
+  return (
+    <div className="strength" aria-live="polite">
+      <div className="strength-bars">
+        {[1, 2, 3, 4].map((i) => (
+          <i key={i} style={{ background: i <= score ? colors[score] : undefined }} />
+        ))}
+      </div>
+      <span style={{ color: colors[score] }}>{labels[score]}</span>
+    </div>
+  )
+}

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Download, Eye, FileSearch, Printer, Search } from 'lucide-react'
 import { qs } from '../api'
 import { Alert, Button, CloseButton, Empty, Modal, PageLoader, Pagination, StatusPill } from '../components/ui'
-import { fmtDate, useApp, useDebounced, useFetch } from '../context'
+import { fmtDate, fmtShort, useApp, useDebounced, useFetch } from '../context'
 
 const PAGE = 25
 
@@ -107,14 +107,14 @@ export default function AdminNotes() {
         <div className="toolbar">
           <div className="search">
             <Search />
-            <input className="input" type="search" placeholder="Search name, email, designation or posting" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search" />
+            <input className="input" type="search" placeholder="Search name, email, posting" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search" />
           </div>
           <select className="select" value={f.topic} onChange={(e) => update({ topic: e.target.value })} aria-label="Topic">
             <option value="">All topics</option>
             {meta.topics.map((t) => <option key={t.key} value={t.key}>{t.title.split(',')[0]}</option>)}
           </select>
           <select className="select" value={f.state} onChange={(e) => update({ state: e.target.value })} aria-label="State or UT">
-            <option value="">All States / UTs</option>
+            <option value="">All States/UTs</option>
             {meta.states.map((s) => <option key={s}>{s}</option>)}
           </select>
           <select className="select" value={f.status} onChange={(e) => update({ status: e.target.value })} aria-label="Status">
@@ -123,7 +123,7 @@ export default function AdminNotes() {
             <option value="draft">Draft</option>
           </select>
           <select className="select" value={f.service_status} onChange={(e) => update({ service_status: e.target.value })} aria-label="Service status">
-            <option value="">Officers + probationers</option>
+            <option value="">All service status</option>
             {meta.service_statuses.map((s) => <option key={s}>{s}</option>)}
           </select>
           {hasFilter && <Button variant="ghost" size="sm" onClick={() => { setQ(''); setSp({}, { replace: true }) }}>Clear</Button>}
@@ -146,7 +146,7 @@ export default function AdminNotes() {
         ) : (
           <>
             <div className="table-wrap" style={{ opacity: loading ? 0.6 : 1, transition: 'opacity .15s' }}>
-              <table className="table">
+              <table className="table stack">
                 <thead>
                   <tr>
                     <th style={{ width: 40 }}>
@@ -159,19 +159,19 @@ export default function AdminNotes() {
                 <tbody>
                   {rows.map((n) => (
                     <tr key={n.id} className={selected.has(n.id) ? 'selected' : ''}>
-                      <td><input className="check" type="checkbox" aria-label={`Select ${n.name}`} checked={selected.has(n.id)} onChange={() => toggle(n.id)} /></td>
+                      <td className="pick"><input className="check" type="checkbox" aria-label={`Select ${n.name}`} checked={selected.has(n.id)} onChange={() => toggle(n.id)} /></td>
                       <td>
                         <b>{n.name}</b> {n.service_status === 'Probationer' && <span className="pill pill-info" style={{ marginLeft: 6 }}>Probationer</span>}
                         <div className="cell-sub">{n.designation}{n.current_posting ? ` · ${n.current_posting}` : ''}</div>
                         <div className="cell-sub">{n.user_email}</div>
                       </td>
-                      <td>{n.state_ut || '—'}</td>
-                      <td className="cell-title" title={topicTitle[n.topic]}>{topicTitle[n.topic].split(',')[0]}</td>
-                      <td><StatusPill status={n.status} /></td>
-                      <td className="nowrap small muted">{fmtDate(n.updated_at)}</td>
-                      <td className="nowrap" style={{ textAlign: 'right' }}>
+                      <td data-label="State / UT">{n.state_ut || '—'}</td>
+                      <td data-label="Topic" className="cell-title" title={topicTitle[n.topic]}>{topicTitle[n.topic].split(',')[0]}</td>
+                      <td data-label="Status"><StatusPill status={n.status} /></td>
+                      <td data-label="Updated" className="nowrap small muted">{fmtShort(n.updated_at)}</td>
+                      <td className="nowrap row-actions" style={{ textAlign: 'right' }}>
                         <Button variant="ghost" size="sm" icon={Eye} onClick={() => setOpen(n)}>View</Button>{' '}
-                        <a className="btn btn-secondary btn-sm" href={`/print/notes/${n.id}/`} target="_blank" rel="noreferrer"><Printer /> Print</a>
+                        <a className="btn btn-secondary btn-sm" href={`/print/notes/${n.id}/`} target="_blank" rel="noreferrer" aria-label={`Print note by ${n.name}`}><Printer /> <span className="lbl">Print</span></a>
                       </td>
                     </tr>
                   ))}
