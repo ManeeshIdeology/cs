@@ -63,6 +63,11 @@ cd backend && python manage.py migrate && python manage.py collectstatic --noinp
 ```
 then **Reload**. If you change the React code, run `npm run build` on your PC (`frontend/`) and commit the new `backend/frontend_dist`.
 
+## If a page ever looks blank
+* Press **Ctrl+Shift+R**. After an update an open tab may still hold the old script files; the app now reloads itself once when it detects that, and shows a "Something went wrong - Reload page" screen instead of a blank page if anything else fails.
+* The first visit after the app has been idle can take a few seconds while PythonAnywhere starts it; a loader is shown meanwhile.
+* If it keeps happening, open the **Error log** on the Web tab and send me the last lines.
+
 ## Free-tier notes
 * Free accounts get one web app on `yourusername.pythonanywhere.com`, and you must press the "Run until" / extend
   button on the Web tab periodically (about every 3 months) or the app is disabled.

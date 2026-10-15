@@ -12,11 +12,8 @@ export function AppProvider({ children }) {
     let alive = true
     ;(async () => {
       try {
-        await api.csrf()
-        const [meta, user] = await Promise.all([
-          api.get('/meta/'),
-          api.get('/auth/me/').catch((e) => (e.status === 403 || e.status === 401 ? null : Promise.reject(e))),
-        ])
+        // One request: sets the CSRF cookie and returns reference data + the signed-in user (or null).
+        const { meta, user } = await api.get('/bootstrap/')
         if (alive) setState({ ready: true, user, meta, fatal: null })
       } catch (e) {
         if (alive) setState({ ready: true, user: null, meta: null, fatal: e.detail || 'Unable to start the app.' })
@@ -29,20 +26,17 @@ export function AppProvider({ children }) {
 
   const setUser = useCallback((user) => setState((s) => ({ ...s, user })), [])
   const login = useCallback(async (email, password) => {
-    const user = await api.post('/auth/login/', { email, password })
-    await api.csrf() // session rotated: refresh the CSRF cookie
+    const user = await api.post('/auth/login/', { email, password }) // the response also sets the rotated CSRF cookie
     setUser(user)
     return user
   }, [setUser])
   const signup = useCallback(async (data) => {
     const user = await api.post('/auth/signup/', data)
-    await api.csrf()
     setUser(user)
     return user
   }, [setUser])
   const logout = useCallback(async () => {
     await api.post('/auth/logout/').catch(() => {})
-    await api.csrf()
     setUser(null)
   }, [setUser])
 

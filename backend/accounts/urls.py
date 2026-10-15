@@ -3,6 +3,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path("bootstrap/", views.BootstrapView.as_view()),
     path("csrf/", views.CsrfView.as_view()),
     path("meta/", views.MetaView.as_view()),
     path("auth/signup/", views.SignupView.as_view()),

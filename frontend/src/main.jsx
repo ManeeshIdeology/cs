@@ -6,16 +6,19 @@ import '@fontsource-variable/source-serif-4'
 import './styles/system.css'
 import './styles/pages.css'
 import App from './App.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { AppProvider, ToastProvider } from './context.jsx'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
-      <ToastProvider>
-        <AppProvider>
-          <App />
-        </AppProvider>
-      </ToastProvider>
+      <ErrorBoundary>
+        <ToastProvider>
+          <AppProvider>
+            <App />
+          </AppProvider>
+        </ToastProvider>
+      </ErrorBoundary>
     </BrowserRouter>
   </React.StrictMode>,
 )

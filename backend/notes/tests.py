@@ -416,3 +416,98 @@ class AdminUserManagementTests(Base):
 
     def test_delete_unknown_user_is_404(self):
         self.assertEqual(self.c.delete("/api/admin/users/99999/").status_code, 404)
+
+
+class PerformanceAndHardeningTests(Base):
+    def test_bootstrap_is_one_call_for_anonymous_and_signed_in(self):
+        anon = APIClient().get("/api/bootstrap/")
+        self.assertEqual(anon.status_code, 200)
+        self.assertIsNone(anon.json()["user"])
+        self.assertEqual(anon.json()["meta"]["defaults"], {"service_status": "Confirmed", "state_ut": "Kerala"})
+        self.assertIn("csrftoken", anon.cookies)
+        user = make_user()
+        self.login(user)
+        self.assertEqual(self.c.get("/api/bootstrap/").json()["user"]["email"], "asha@x.in")
+
+    def test_meta_lists_batches_2026_down_to_1992(self):
+        b = APIClient().get("/api/meta/").json()["batches"]
+        self.assertEqual((b[0], b[-1], len(b)), ("2026", "1992", 35))
+
+    def test_batch_must_be_in_range_on_signup_and_profile(self):
+        for bad in ("1991", "2027", "2015-RR", "abc"):
+            r = APIClient().post("/api/auth/signup/", {**PROFILE, "email": "b@x.in", "batch": bad}, format="json")
+            self.assertEqual(r.status_code, 400, bad)
+            self.assertIn("batch", r.json()["fields"])
+        for ok in ("1992", "2026"):
+            r = APIClient().post("/api/auth/signup/", {**PROFILE, "email": f"{ok}@x.in", "batch": ok}, format="json")
+            self.assertEqual(r.status_code, 201, r.content)
+        legacy = make_user("legacy@x.in", batch="2015 RR")  # older free-text value is kept while unchanged
+        self.login(legacy)
+        self.assertEqual(self.c.patch("/api/auth/me/", {"batch": "2015 RR", "current_posting": "X"}, format="json").status_code, 200)
+        self.assertEqual(self.c.patch("/api/auth/me/", {"batch": "1980"}, format="json").status_code, 400)
+
+    def test_many_logins_from_one_ip_are_not_blocked_but_wrong_passwords_are(self):
+        for i in range(12):
+            make_user(f"u{i}@x.in", name=f"U{i}")
+        c = APIClient(REMOTE_ADDR="10.1.1.1")
+        for i in range(12):  # a whole hall behind one IP
+            r = c.post("/api/auth/login/", {"email": f"u{i}@x.in", "password": PROFILE["password"]}, format="json")
+            self.assertEqual(r.status_code, 200, (i, r.content))
+        for _ in range(8):
+            c.post("/api/auth/login/", {"email": "u0@x.in", "password": "wrong"}, format="json")
+        locked = c.post("/api/auth/login/", {"email": "u0@x.in", "password": PROFILE["password"]}, format="json")
+        self.assertEqual(locked.status_code, 429)
+        other = APIClient(REMOTE_ADDR="10.1.1.1").post("/api/auth/login/", {"email": "u1@x.in", "password": PROFILE["password"]}, format="json")
+        self.assertEqual(other.status_code, 200)  # a different account on the same IP is unaffected
+
+    def test_reset_mail_is_limited_per_address(self):
+        make_user()
+        with self.settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend"):
+            from unittest import mock
+
+            sync = lambda r, u: __import__("accounts.emails", fromlist=["x"]).send_password_reset_email(r, u, background=False)
+            with mock.patch("accounts.views.send_password_reset_email", side_effect=sync):
+                codes = [APIClient().post("/api/auth/password-reset/", {"email": "asha@x.in"}, format="json").status_code for _ in range(8)]
+        self.assertEqual(set(codes), {200})  # always the same answer
+        self.assertEqual(len(mail.outbox), 5)  # but at most 5 e-mails per hour
+
+    def test_unchanged_autosave_does_not_write(self):
+        user = make_user()
+        self.login(user)
+        r = self.c.post("/api/notes/", {**BODY, "topic": "data"}, format="json")
+        nid = r.json()["id"]
+        before = Note.objects.get(pk=nid).updated_at
+        again = self.c.patch(f"/api/notes/{nid}/", {**BODY, "topic": "data", "submit": False}, format="json")
+        self.assertEqual(again.status_code, 200)
+        self.assertEqual(Note.objects.get(pk=nid).updated_at, before)  # no UPDATE happened
+        changed = self.c.patch(f"/api/notes/{nid}/", {**BODY, "policy_gaps": "different", "submit": False}, format="json")
+        self.assertGreater(Note.objects.get(pk=nid).updated_at, before)
+        self.assertEqual(changed.json()["policy_gaps"], "different")
+
+    def test_lone_surrogates_are_rejected_not_a_server_error(self):
+        user = make_user()
+        self.login(user)
+        import json
+
+        # json.dumps escapes the lone surrogate as the six characters \ud800, exactly as a browser would send it
+        raw = json.dumps({**BODY, "topic": "data", "policy_gaps": "bad \ud800 text"})
+        r = self.c.post("/api/notes/", raw, content_type="application/json")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("policy_gaps", r.json()["fields"])
+
+    @override_settings(PASSWORD_HASHERS=["accounts.hashers.PBKDF2SHA256Hasher600k"])
+    def test_password_hash_cost_and_upgrade_of_older_hashes(self):
+        from django.contrib.auth.hashers import check_password, make_password
+
+        self.assertIn("$600000$", make_password("Str0ng-Pass!9"))
+        old = make_password("Str0ng-Pass!9", hasher="default")
+        # an older, costlier 1,000,000-iteration hash must still verify and be flagged for upgrade
+        from django.contrib.auth.hashers import PBKDF2PasswordHasher
+
+        h = PBKDF2PasswordHasher()
+        h.iterations = 1_000_000
+        legacy = h.encode("Str0ng-Pass!9", "salt1234")
+        self.assertTrue(check_password("Str0ng-Pass!9", legacy))
+        from django.contrib.auth.hashers import identify_hasher
+
+        self.assertTrue(identify_hasher(legacy).must_update(legacy))

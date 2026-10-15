@@ -3,8 +3,8 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Check, CheckCircle2, CloudOff, Eye, ListChecks, Loader2, Save, Send, Undo2, UserRound } from 'lucide-react'
 import { api } from '../api'
 import { TOPIC_ICON } from '../components/Layout'
-import { Alert, Button, Choices, PageLoader, StatusPill, TextField } from '../components/ui'
-import { SERVICE_OPTIONS } from '../components/OfficerFields'
+import { Alert, Button, Choices, PageLoader, SelectField, StatusPill, TextField } from '../components/ui'
+import { SERVICE_OPTIONS, batchOptions } from '../components/OfficerFields'
 import { fmtDate, useApp, useToast } from '../context'
 
 const OFFICER = ['name', 'designation', 'batch', 'service_status', 'current_posting']
@@ -22,6 +22,8 @@ const ANSWERS = [
   { key: 'best_practices', no: 4, title: 'Best Practices', id: 'sec-best', rows: 7,
     hint: 'Highlights the practices, which are sustainable, replicable, scalable, monitorable, etc. Can also highlights the block/district/ State level practices' },
 ]
+const SIG_FIELDS = ['topic', 'name', 'designation', 'batch', 'service_status', 'training_institute', 'current_posting', 'policy_gaps', 'potential_solutions', 'best_practices']
+const signature = (n) => JSON.stringify(SIG_FIELDS.map((k) => n[k] ?? ''))
 const words = (s) => (s.trim() ? s.trim().split(/\s+/).length : 0)
 const time = (d) => d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
 
@@ -49,6 +51,7 @@ export default function NoteEditor() {
   idRef.current = noteId
   const ver = useRef(0)
   const inflight = useRef(null)
+  const lastSent = useRef('') // JSON of the last content known to be on the server
 
   /* ---------- load ---------- */
   useEffect(() => {
@@ -59,6 +62,7 @@ export default function NoteEditor() {
           const n = await api.get(`/notes/${id}/`)
           if (!alive) return
           setV(n)
+          lastSent.current = signature(n)
           setStatus(n.status)
           setSave({ state: 'saved', at: new Date(n.updated_at) })
         } else {
@@ -104,6 +108,12 @@ export default function NoteEditor() {
       policy_gaps: cur.policy_gaps, potential_solutions: cur.potential_solutions, best_practices: cur.best_practices,
     }
     if (submit !== undefined) body.submit = submit
+    const sig = signature(cur)
+    if (silent && idRef.current && sig === lastSent.current) {
+      // Nothing changed since the last save: skip the request (keeps the server light during long editing sessions).
+      if (ver.current === snapshot) setDirty(false)
+      return null
+    }
     if (silent) setSave((s) => ({ ...s, state: 'saving' }))
     const run = (async () => {
       const saved = idRef.current ? await api.patch(`/notes/${idRef.current}/`, body) : await api.post('/notes/', body)
@@ -114,6 +124,7 @@ export default function NoteEditor() {
         window.history.replaceState(window.history.state, '', `/notes/${saved.id}`)
       }
       setStatus(saved.status)
+      lastSent.current = sig
       setSave({ state: 'saved', at: new Date() })
       if (ver.current === snapshot) setDirty(false)
       return saved
@@ -134,7 +145,7 @@ export default function NoteEditor() {
     if (!dirty || status === 'submitted' || loading || !v?.name?.trim()) return
     const t = setTimeout(() => {
       persist(false, { silent: true }).catch(() => {})
-    }, 1600)
+    }, 2500)
     return () => clearTimeout(t)
   }, [v, dirty, status, loading, persist])
 
@@ -312,7 +323,7 @@ export default function NoteEditor() {
             <div className="form-grid" style={{ marginTop: 16 }}>
               <div className="full"><TextField label="Name" autoComplete="name" {...bind('name')} /></div>
               <TextField label="Designation" {...bind('designation')} />
-              <TextField label="Batch" {...bind('batch')} />
+              <SelectField label="Batch" options={batchOptions(meta, v.batch)} placeholder="Select batch" {...bind('batch')} />
               <div className="full">
                 <Choices label="Current service status" name="service_status" value={v.service_status} onChange={(x) => set('service_status', x)} options={SERVICE_OPTIONS} error={err('service_status')} />
               </div>

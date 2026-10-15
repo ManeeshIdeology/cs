@@ -46,6 +46,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "core.middleware.GZipForReadsMiddleware",  # after WhiteNoise: static files are pre-compressed and skip this
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -80,15 +81,25 @@ DATABASES = {
         "OPTIONS": {
             "timeout": 20,
             # WAL lets readers and the single writer work together; good default for a small web app.
-            "init_command": "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA foreign_keys=ON;",
+            "init_command": (
+                "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA foreign_keys=ON; "
+                "PRAGMA busy_timeout=20000; PRAGMA cache_size=-20000; PRAGMA temp_store=MEMORY; PRAGMA mmap_size=134217728;"
+            ),
             "transaction_mode": "IMMEDIATE",
         },
     }
 }
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Small in-process cache (rate limiting). Each worker process keeps its own copy.
+CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "OPTIONS": {"MAX_ENTRIES": 20000}}}
+
 # ---- Auth -------------------------------------------------------------------------------------
 AUTH_USER_MODEL = "accounts.User"
+PASSWORD_HASHERS = [
+    "accounts.hashers.PBKDF2SHA256Hasher600k",  # also verifies/upgrades older pbkdf2_sha256 hashes
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+]
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
@@ -137,6 +148,15 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 FRONTEND_DIST = BASE_DIR / "frontend_dist"  # `npm run build` writes here
 if FRONTEND_DIST.exists():
     WHITENOISE_ROOT = FRONTEND_DIST  # serves /assets/*, /favicon.svg, ... at the site root
+
+
+def _immutable_asset(path, url):
+    """Vite fingerprints everything under /assets/, so browsers may cache it for a year."""
+    return url.startswith("/assets/")
+
+
+WHITENOISE_IMMUTABLE_FILE_TEST = _immutable_asset
+WHITENOISE_MAX_AGE = 3600  # logo, favicon, ...
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {
@@ -153,8 +173,10 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
     "DEFAULT_THROTTLE_RATES": {
-        "auth": os.environ.get("DJANGO_AUTH_THROTTLE", "20/min"),
-        "password_reset": os.environ.get("DJANGO_RESET_THROTTLE", "10/hour"),
+        # Flood guard per client IP for the pre-login endpoints. Deliberately generous: a whole conference hall
+        # can share one public IP. Wrong-password attempts are limited separately (see accounts/views.py).
+        "auth": os.environ.get("DJANGO_AUTH_THROTTLE", "240/min"),
+        "password_reset": os.environ.get("DJANGO_RESET_THROTTLE", "60/hour"),
     },
     "EXCEPTION_HANDLER": "core.api.exception_handler",
 }
@@ -163,8 +185,8 @@ REST_FRAMEWORK = {
 if not DEBUG:
     SECURE_SSL_REDIRECT = os.environ.get("DJANGO_SSL_REDIRECT", "1") == "1"
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    # Secure cookies need HTTPS. Set DJANGO_SECURE_COOKIES=0 only to try production mode over plain http locally.
+    SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = os.environ.get("DJANGO_SECURE_COOKIES", "1") == "1"
     SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_REFERRER_POLICY = "same-origin"

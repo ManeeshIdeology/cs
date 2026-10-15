@@ -4,12 +4,25 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#14307a" />
+    <meta name="theme-color" content="#1b3a6b" />
     <meta name="robots" content="noindex" />
     <title>Feedback Note · Sixth National Conference of Chief Secretaries</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="boot" style="min-height:100vh;display:grid;place-items:center;background:#f4f1ea;font-family:system-ui,sans-serif;color:#646a78">
+        <div style="text-align:center">
+          <div style="width:34px;height:34px;margin:0 auto 14px;border:4px solid #e0dacd;border-top-color:#1b3a6b;border-radius:50%;animation:bootspin .8s linear infinite"></div>
+          Loading…
+          <div id="boot-slow" style="display:none;margin-top:14px;font-size:14px">
+            Taking longer than usual. <a href="" style="color:#1b3a6b;font-weight:700">Reload</a>
+          </div>
+        </div>
+      </div>
+      <style>@keyframes bootspin{to{transform:rotate(360deg)}}</style>
+    </div>
+    <noscript><p style="padding:24px;font-family:system-ui,sans-serif">This portal needs JavaScript. Please enable it in your browser.</p></noscript>
+    <script>setTimeout(function(){var e=document.getElementById('boot-slow');if(e)e.style.display='block'},12000)</script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

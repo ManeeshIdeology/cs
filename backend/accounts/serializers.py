@@ -5,7 +5,7 @@ from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 
-from core.constants import SERVICE_STATUSES, STATES_UTS
+from core.constants import BATCH_YEARS, SERVICE_STATUSES, STATES_UTS
 
 from .models import User
 
@@ -25,6 +25,12 @@ class ProfileValidationMixin:
     def validate_state_ut(self, v):
         if v not in STATES_UTS:
             raise serializers.ValidationError("Choose your State / UT.")
+        return v
+
+    def validate_batch(self, v):
+        unchanged = getattr(self, "instance", None) is not None and v == self.instance.batch  # keep legacy values
+        if v and v not in BATCH_YEARS and not unchanged:
+            raise serializers.ValidationError("Choose your batch year (1992 to 2026).")
         return v
 
 

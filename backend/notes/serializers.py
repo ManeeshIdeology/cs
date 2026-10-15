@@ -1,12 +1,33 @@
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework import serializers
+from rest_framework.validators import ProhibitSurrogateCharactersValidator
 
 from core.constants import MAX_NOTES_PER_USER, TOPIC_TITLES
 
 from .models import Note
 
 BOX_MAX = 20000
+
+
+def _valid_utf8(value):
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        raise serializers.ValidationError("Text contains characters that cannot be saved.")
+
+
+class FastTextField(serializers.CharField):
+    """CharField for the long answer boxes.
+
+    DRF's built-in surrogate-character check loops over every character in Python, which dominates the cost of
+    an autosave on a 20,000-character answer. Encoding to UTF-8 rejects exactly the same bad input, in C.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.validators = [v for v in self.validators if not isinstance(v, ProhibitSurrogateCharactersValidator)]
+        self.validators.append(_valid_utf8)
 
 
 class NoteSerializer(serializers.ModelSerializer):
@@ -18,6 +39,9 @@ class NoteSerializer(serializers.ModelSerializer):
     """
 
     submit = serializers.BooleanField(write_only=True, required=False)
+    policy_gaps = FastTextField(max_length=BOX_MAX, allow_blank=True, required=False)
+    potential_solutions = FastTextField(max_length=BOX_MAX, allow_blank=True, required=False)
+    best_practices = FastTextField(max_length=BOX_MAX, allow_blank=True, required=False)
     topic_title = serializers.SerializerMethodField()
 
     class Meta:
@@ -30,9 +54,6 @@ class NoteSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "status", "created_at", "updated_at", "submitted_at"]
         extra_kwargs = {
-            "policy_gaps": {"max_length": BOX_MAX},
-            "potential_solutions": {"max_length": BOX_MAX},
-            "best_practices": {"max_length": BOX_MAX},
             "name": {"required": False},
         }
 
@@ -90,6 +111,8 @@ class NoteSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated):
         validated = self._apply_status(validated, instance)
+        if all(getattr(instance, k) == v for k, v in validated.items()):
+            return instance  # autosave of an unchanged note: no database write
         return super().update(instance, validated)
 
 

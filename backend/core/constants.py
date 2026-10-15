@@ -14,6 +14,9 @@ PROBATIONER = "Probationer"
 CONFIRMED = "Confirmed"
 SERVICE_STATUSES = [PROBATIONER, CONFIRMED]
 
+# Batch (year of joining) choices, newest first: 2026 ... 1992
+BATCH_YEARS = [str(y) for y in range(2026, 1991, -1)]
+
 DEFAULT_SERVICE_STATUS = CONFIRMED
 DEFAULT_STATE_UT = "Kerala"
 

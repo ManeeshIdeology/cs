@@ -88,10 +88,30 @@ Free hosting on PythonAnywhere: see **[DEPLOY_PYTHONANYWHERE.md](DEPLOY_PYTHONAN
 `GET|POST notes/` · `GET|PATCH|DELETE notes/<id>/` — user's own notes (`submit: true|false` controls status)
 `GET admin/stats/` · `GET|POST admin/users/` · `DELETE admin/users/<id>/` · `GET admin/notes/` · `GET admin/notes/<id>/` · `GET admin/notes/export.csv` · `GET admin/users/` — admin only
 
+## Performance and capacity
+
+Measured on a modest Windows PC (4 server threads, one process, SQLite, production settings; the PC was also running the load generator):
+
+| Scenario | Result |
+|---|---|
+| 150 officers working at once, each saving a note about every 10 s | median **43 ms**, 95% under **110 ms** |
+| 100 officers all typing non-stop (a save every 2.5 s each) | about 35 saves/s sustained per process; beyond that requests queue |
+| 40 officers pressing *Log in* in the same second | the slowest part: each login costs ~1 s of CPU on that PC (password hashing), so the last waits several seconds |
+
+What makes it fast:
+* **One start-up request** (`/api/bootstrap/`) instead of three; the page shows a loader immediately.
+* **Pre-compressed assets** (Brotli/gzip built by `npm run build`), cached for a year; `index.html` is never cached, so updates appear at once.
+* **Autosave is gentle:** it waits for a 2.5 s pause in typing, skips identical content, and the server skips the database write when nothing changed.
+* **SQLite tuned** (WAL, busy timeout, larger cache, memory-mapped reads) and a C-speed check on long answers.
+* **Password hashing** uses PBKDF2-SHA256 at 600,000 iterations (OWASP minimum) instead of Django's 1,000,000. Lower `DJANGO_PBKDF2_ITERATIONS` only on very small hosts.
+* **Wrong-password limits only:** correct logins are never throttled, so a whole hall behind one IP can sign in together (limit: 8 wrong tries per account+IP, 30 per account, per 15 minutes).
+
+To serve more people: run more worker processes (`gunicorn -c gunicorn.conf.py config.wsgi` on Linux; on PythonAnywhere a paid plan adds workers). SQLite handles many readers plus one writer well; consider PostgreSQL only if you expect thousands of people writing at the same second.
+
 ## Tests
 
 ```bash
-cd backend && python manage.py test        # 42 tests: auth, 3-note rule, submit validation, permissions, admin API, print, CSV
+cd backend && python manage.py test        # 50 tests: auth, 3-note rule, submit validation, permissions, admin API, print, CSV
 ```
 
 ## Notes
