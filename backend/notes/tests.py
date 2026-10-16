@@ -97,29 +97,35 @@ class NoteTests(Base):
     def post(self, topic, **extra):
         return self.c.post("/api/notes/", {**BODY, "topic": topic, **extra}, format="json")
 
-    def test_one_person_can_file_up_to_three_notes_in_different_topics(self):
-        for t in ("data", "geo", "micro"):
+    def test_one_person_can_file_several_notes_including_the_same_topic(self):
+        for t in ("data", "geo", "micro", "data", "data"):
             r = self.post(t, submit=True)
             self.assertEqual(r.status_code, 201, r.content)
             self.assertEqual(r.json()["status"], "submitted")
-        self.assertEqual(Note.objects.filter(user=self.user).count(), 3)
-        self.assertEqual(len(self.c.get("/api/notes/").json()), 3)
+        self.assertEqual(Note.objects.filter(user=self.user, topic="data").count(), 3)
+        self.assertEqual(len(self.c.get("/api/notes/").json()), 5)
 
-    def test_same_topic_twice_is_rejected(self):
-        self.assertEqual(self.post("data").status_code, 201)
-        r = self.post("data")
+    def test_safety_cap_on_notes_per_person(self):
+        from unittest import mock
+
+        with mock.patch("notes.serializers.MAX_NOTES_PER_USER", 2):
+            self.assertEqual(self.post("data").status_code, 201)
+            self.assertEqual(self.post("data").status_code, 201)
+            r = self.post("geo")
         self.assertEqual(r.status_code, 400)
-        self.assertIn("topic", r.json()["fields"])
+        self.assertIn("at most 2 notes", r.json()["fields"]["topic"][0])
 
     def test_invalid_topic_rejected(self):
         self.assertEqual(self.post("space").status_code, 400)
 
-    def test_database_enforces_one_note_per_topic(self):
-        from django.db import IntegrityError, transaction
-
-        Note.objects.create(user=self.user, topic="data", name="A")
-        with self.assertRaises(IntegrityError), transaction.atomic():
-            Note.objects.create(user=self.user, topic="data", name="B")
+    def test_two_notes_on_one_topic_are_independent(self):
+        a = self.post("data", policy_gaps="first note").json()["id"]
+        b = self.post("data", policy_gaps="second note").json()["id"]
+        self.assertNotEqual(a, b)
+        self.c.patch(f"/api/notes/{b}/", {"policy_gaps": "second note, edited"}, format="json")
+        self.assertEqual(self.c.get(f"/api/notes/{a}/").json()["policy_gaps"], "first note")
+        self.assertEqual(self.c.delete(f"/api/notes/{a}/").status_code, 204)
+        self.assertEqual(self.c.get(f"/api/notes/{b}/").json()["policy_gaps"], "second note, edited")
 
     def test_draft_may_be_partial_but_submit_must_be_complete(self):
         r = self.c.post("/api/notes/", {"topic": "data", "name": "Asha"}, format="json")
@@ -154,10 +160,10 @@ class NoteTests(Base):
         self.assertEqual(self.c.delete(f"/api/notes/{nid}/").status_code, 404)
         self.assertEqual(self.c.get("/api/notes/").json(), [])
 
-    def test_delete_frees_the_slot(self):
-        nid = self.post("data").json()["id"]
-        self.assertEqual(self.c.delete(f"/api/notes/{nid}/").status_code, 204)
-        self.assertEqual(self.post("data").status_code, 201)
+    def test_delete_removes_only_that_note(self):
+        a, b = self.post("data").json()["id"], self.post("data").json()["id"]
+        self.assertEqual(self.c.delete(f"/api/notes/{a}/").status_code, 204)
+        self.assertEqual([n["id"] for n in self.c.get("/api/notes/").json()], [b])
 
     def test_ordinary_user_cannot_use_admin_api(self):
         for url in ("/api/admin/stats/", "/api/admin/notes/", "/api/admin/users/", "/api/admin/notes/export.csv"):
@@ -526,3 +532,25 @@ class BatchOnNotesTests(Base):
         fixed = self.c.patch(f"/api/notes/{legacy.pk}/", {"batch": "2015"}, format="json")
         self.assertEqual(fixed.status_code, 200)
         self.assertEqual(self.c.patch(f"/api/notes/{legacy.pk}/", {"batch": "2030"}, format="json").status_code, 400)
+
+
+class MultipleNotesPrintTests(Base):
+    def test_summary_counts_each_officer_once_and_marks_the_chosen_status_with_a_tick(self):
+        admin = User.objects.create_superuser("admin@x.in", "Adm1n-Pass!9")
+        asha = make_user()
+        bala = make_user("bala@x.in", name="Bala Iyer", service_status="Probationer")
+        for u, n in ((asha, 3), (bala, 1)):
+            for _ in range(n):
+                Note.objects.create(user=u, topic="data", status="submitted", **{**BODY, "name": u.name, "service_status": u.service_status})
+        self.login(admin)
+        html = self.c.get("/print/?topic=data&summary=1").content.decode()
+        self.assertIn("No. of officers who have written feedback note on this topic:</b> 1", html)
+        self.assertIn("No. of probationers who have written feedback note on this topic:</b> 1", html)
+        self.assertIn("Asha Rao (3 notes)", html)
+        self.assertEqual(html.count("Name : Asha Rao"), 3)  # every note is still printed
+        # Confirmed note: tick sits in the Confirmed bracket, not in Probationer; no letter X anywhere in the status line
+        line = html[html.index("Current service status"):html.index("Training Institute / Academy (if")]
+        self.assertIn('<svg class="tick"', line)
+        self.assertEqual(line.count('<svg class="tick"'), 1)
+        self.assertNotIn(">X<", line)
+        self.assertLess(line.index("] Probationer"), line.index('<svg class="tick"'))  # tick comes after the Probationer box

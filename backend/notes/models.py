@@ -5,7 +5,7 @@ from core.constants import SERVICE_STATUSES, TOPIC_TITLES, TOPICS
 
 
 class Note(models.Model):
-    """A Feedback Note (Template 1). A user may file one note per topic, i.e. at most three."""
+    """A Feedback Note (Template 1). A person may file several notes, including more than one on the same topic."""
 
     TOPIC_CHOICES = TOPICS
     DRAFT, SUBMITTED = "draft", "submitted"
@@ -33,9 +33,8 @@ class Note(models.Model):
     submitted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ["name", "topic"]
-        constraints = [models.UniqueConstraint(fields=["user", "topic"], name="one_note_per_user_per_topic")]
-        indexes = [models.Index(fields=["topic", "status"])]
+        ordering = ["name", "topic", "id"]
+        indexes = [models.Index(fields=["topic", "status"]), models.Index(fields=["user", "topic"])]
 
     # Fields that must be filled before a note can be submitted (drafts may be partial).
     REQUIRED_ON_SUBMIT = {

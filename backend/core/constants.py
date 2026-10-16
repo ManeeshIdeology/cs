@@ -1,6 +1,6 @@
 """Static reference data taken from "Template 1-Feedback-Note_6th CS_F.docx"."""
 
-MAX_NOTES_PER_USER = 3  # one note in each subject area
+MAX_NOTES_PER_USER = 30  # safety cap on notes per person; a person may file several notes on the same topic
 
 # (key, title) - titles are verbatim from the template.
 TOPICS = [

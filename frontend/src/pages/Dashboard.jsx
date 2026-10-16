@@ -6,6 +6,12 @@ import { TOPIC_ICON } from '../components/Layout'
 import { Alert, Button, ConfirmDialog, PageLoader, ProgressRing, StatusPill } from '../components/ui'
 import { fmtDate, useApp, useFetch, useToast } from '../context'
 
+/** A short label for a note: the start of its first answer, so several notes on one topic are easy to tell apart. */
+function noteLabel(n) {
+  const text = (n.policy_gaps || n.potential_solutions || n.best_practices || '').replace(/\s+/g, ' ').trim()
+  return text ? (text.length > 90 ? text.slice(0, 90) + '…' : text) : 'Untitled note — nothing written yet'
+}
+
 export default function Dashboard() {
   const { user, meta } = useApp()
   const toast = useToast()
@@ -17,8 +23,11 @@ export default function Dashboard() {
   if (loading && !notes) return <PageLoader />
   if (error) return <Alert type="error">{error.detail}</Alert>
 
-  const byTopic = Object.fromEntries(notes.map((n) => [n.topic, n]))
+  const byTopic = Object.fromEntries(meta.topics.map((t) => [t.key, notes.filter((n) => n.topic === t.key)]))
   const submitted = notes.filter((n) => n.status === 'submitted').length
+  const drafts = notes.length - submitted
+  const covered = meta.topics.filter((t) => byTopic[t.key].some((n) => n.status === 'submitted')).length
+  const full = notes.length >= meta.max_notes
   const first = user.name.split(' ')[0]
 
   async function remove() {
@@ -41,8 +50,13 @@ export default function Dashboard() {
         <div>
           <h1>Welcome, {first}</h1>
           <p>
-            You can file <b>up to {meta.max_notes} feedback notes — one in each subject area</b>. Drafts save automatically; submit a note when it is final.
+            Write <b>as many feedback notes as you need</b> — you can add more than one note on the same topic. Drafts save automatically; submit a note when it is final.
           </p>
+          <div className="counts">
+            <span><b>{notes.length}</b> note{notes.length === 1 ? '' : 's'}</span>
+            <span><b>{submitted}</b> submitted</span>
+            <span><b>{drafts}</b> draft{drafts === 1 ? '' : 's'}</span>
+          </div>
           {notes.length === 0 && (
             <p style={{ marginTop: 14 }}>
               <Button icon={Plus} onClick={() => nav(`/notes/new/${meta.topics[0].key}`)}>
@@ -52,11 +66,10 @@ export default function Dashboard() {
           )}
         </div>
         <div className="welcome-side">
-          <ProgressRing value={submitted} max={meta.max_notes} />
+          <ProgressRing value={covered} max={meta.topics.length} label="topics" />
           <div className="steps">
             {meta.topics.map((t) => {
-              const n = byTopic[t.key]
-              const done = n?.status === 'submitted'
+              const done = byTopic[t.key].some((n) => n.status === 'submitted')
               return (
                 <div key={t.key} className={done ? 'done' : ''}>
                   {done ? <CheckCircle2 /> : <Circle />}
@@ -71,45 +84,71 @@ export default function Dashboard() {
       <div className="page-head">
         <div>
           <h2>Conference topics</h2>
-          <p>Choose a topic to start or continue your note.</p>
+          <p>Add a note under any topic — as many as you like.</p>
         </div>
       </div>
 
-      <div className="topic-grid">
+      {full && <Alert type="warn" className="mb">You have reached the limit of {meta.max_notes} notes. Delete a note you no longer need to add another.</Alert>}
+
+      <div className="topic-stack">
         {meta.topics.map((t, i) => {
-          const n = byTopic[t.key]
+          const list = byTopic[t.key]
           const Icon = TOPIC_ICON[t.key]
-          const state = n ? n.status : 'none'
+          const done = list.filter((n) => n.status === 'submitted').length
           return (
-            <article key={t.key} className={`card topic-card is-${state}`}>
-              <div className="topic-top">
-                <span className="topic-icon">
-                  <Icon />
-                </span>
-                <StatusPill status={n?.status} />
-              </div>
-              <div>
-                <div className="no">Topic {i + 1}</div>
-                <h3>{t.title}</h3>
-              </div>
-              <div className="meta">{n ? `Last updated ${fmtDate(n.updated_at)}` : 'You have not started a note on this topic.'}</div>
-              <div className="actions">
-                {n ? (
-                  <>
-                    <Link className="btn btn-primary btn-sm" to={`/notes/${n.id}`}>
-                      <Pencil /> {n.status === 'submitted' ? 'Edit' : 'Continue'}
-                    </Link>
-                    <a className="btn btn-secondary btn-sm" href={`/print/notes/${n.id}/`} target="_blank" rel="noreferrer">
-                      <ExternalLink /> Print view
-                    </a>
-                    <Button variant="danger" size="sm" className="btn-icon" icon={Trash2} aria-label={`Delete note on ${t.title}`} onClick={() => setToDelete(n)} />
-                  </>
-                ) : (
-                  <Link className="btn btn-primary btn-sm" to={`/notes/new/${t.key}`}>
-                    <Plus /> Start note
-                  </Link>
-                )}
-              </div>
+            <article key={t.key} className={`card topic-block ${done ? 'has-submitted' : list.length ? 'has-draft' : ''}`}>
+              <header className="topic-head">
+                <span className="topic-icon"><Icon /></span>
+                <div className="topic-title">
+                  <div className="no">Topic {i + 1}</div>
+                  <h3>{t.title}</h3>
+                </div>
+                <div className="topic-count">
+                  {list.length === 0 ? (
+                    <StatusPill />
+                  ) : (
+                    <span className="count-chip"><b>{list.length}</b> note{list.length === 1 ? '' : 's'}{done ? <> · <b>{done}</b> submitted</> : null}</span>
+                  )}
+                </div>
+              </header>
+
+              {list.length > 0 && (
+                <ul className="entries">
+                  {list.map((n, k) => (
+                    <li key={n.id} className="entry">
+                      <div className="entry-main">
+                        <div className="entry-top">
+                          <span className="entry-no">Note {k + 1}</span>
+                          <StatusPill status={n.status} />
+                        </div>
+                        <div className="entry-label">{noteLabel(n)}</div>
+                        <div className="entry-meta">Last updated {fmtDate(n.updated_at)}</div>
+                      </div>
+                      <div className="entry-actions">
+                        <Link className="btn btn-primary btn-sm" to={`/notes/${n.id}`}>
+                          <Pencil /> {n.status === 'submitted' ? 'Edit' : 'Continue'}
+                        </Link>
+                        <a className="btn btn-secondary btn-sm" href={`/print/notes/${n.id}/`} target="_blank" rel="noreferrer">
+                          <ExternalLink /> Print view
+                        </a>
+                        <Button variant="danger" size="sm" className="btn-icon" icon={Trash2} aria-label={`Delete note ${k + 1} on ${t.title}`} onClick={() => setToDelete(n)} />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <footer className="topic-foot">
+                {list.length === 0 && <span className="muted small">You have not started a note on this topic.</span>}
+                <Link
+                  className={`btn btn-sm ${list.length ? 'btn-secondary' : 'btn-primary'} ${full ? 'is-disabled' : ''}`}
+                  to={`/notes/new/${t.key}`}
+                  aria-disabled={full}
+                  onClick={(e) => full && e.preventDefault()}
+                >
+                  <Plus /> {list.length ? 'Add another note on this topic' : 'Start note'}
+                </Link>
+              </footer>
             </article>
           )
         })}
@@ -124,7 +163,7 @@ export default function Dashboard() {
         onConfirm={remove}
         onClose={() => setToDelete(null)}
       >
-        Your note on “{toDelete?.topic_title}” will be permanently deleted. You can start a new one afterwards.
+        This note on “{toDelete?.topic_title}” will be permanently deleted. Your other notes are not affected.
       </ConfirmDialog>
     </>
   )

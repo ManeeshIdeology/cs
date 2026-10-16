@@ -40,7 +40,7 @@ export default function AdminOverview() {
         <Stat icon={Users} tone="blue" value={s.users} label="Registered officers" />
         <Stat icon={CheckCircle2} tone="green" value={s.submitted} label="Notes submitted" />
         <Stat icon={PenLine} tone="gold" value={s.draft} label="Drafts in progress" />
-        <Stat icon={FileText} tone="slate" value={s.complete_users} label="Officers with all 3 notes" />
+        <Stat icon={FileText} tone="slate" value={s.submitters} label="Officers who submitted" />
       </div>
 
       <div className="grid-2">

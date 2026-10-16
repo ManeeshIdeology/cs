@@ -1,4 +1,3 @@
-from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.validators import ProhibitSurrogateCharactersValidator
@@ -69,12 +68,8 @@ class NoteSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         user = self.context["request"].user
         if self.instance is None:
-            topic = attrs.get("topic")
-            mine = Note.objects.filter(user=user)
-            if mine.count() >= MAX_NOTES_PER_USER:
-                raise serializers.ValidationError({"topic": [f"You can file at most {MAX_NOTES_PER_USER} notes (one per topic)."]})
-            if mine.filter(topic=topic).exists():
-                raise serializers.ValidationError({"topic": ["You have already filed a note on this topic. Edit it from My notes."]})
+            if Note.objects.filter(user=user).count() >= MAX_NOTES_PER_USER:
+                raise serializers.ValidationError({"topic": [f"You can keep at most {MAX_NOTES_PER_USER} notes. Delete one you no longer need first."]})
         else:
             attrs.pop("topic", None)  # a note's topic never changes
 
@@ -109,11 +104,7 @@ class NoteSerializer(serializers.ModelSerializer):
 
     def create(self, validated):
         validated = self._apply_status(validated)
-        try:
-            with transaction.atomic():
-                return Note.objects.create(user=self.context["request"].user, **validated)
-        except IntegrityError:  # two requests raced for the same topic
-            raise serializers.ValidationError({"topic": ["You have already filed a note on this topic."]})
+        return Note.objects.create(user=self.context["request"].user, **validated)
 
     def update(self, instance, validated):
         validated = self._apply_status(validated, instance)

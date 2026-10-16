@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { BarChart3, ChevronDown, ClipboardList, Database, Dna, FileText, Globe2, LogOut, UserCog, Users } from 'lucide-react'
+import { BarChart3, ChevronDown, ClipboardList, FileText, LogOut, UserCog, Users } from 'lucide-react'
 import { initials, useApp } from '../context'
+import { AiHeadIcon, GeoPinIcon, PetriIcon } from './TopicIcons'
 
-export const TOPIC_ICON = { data: Database, geo: Globe2, micro: Dna }
+export const TOPIC_ICON = { data: AiHeadIcon, geo: GeoPinIcon, micro: PetriIcon }
 
 export function Brand({ to = '/' }) {
   return (
@@ -149,7 +150,7 @@ export function AuthLayout({ children, wide }) {
               </li>
             ))}
           </ol>
-          <p className="hero-foot">You may file up to three notes — one in each subject area.</p>
+          <p className="hero-foot">You can write more than one note on each topic.</p>
         </div>
       </aside>
       <section className="auth-form">

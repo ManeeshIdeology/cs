@@ -206,7 +206,7 @@ export function Pagination({ page, pageSize, count, onPage }) {
   )
 }
 
-export function ProgressRing({ value, max, size = 96, stroke = 9 }) {
+export function ProgressRing({ value, max, size = 96, stroke = 9, label = 'submitted' }) {
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
   const frac = max ? Math.min(1, value / max) : 0
@@ -222,7 +222,7 @@ export function ProgressRing({ value, max, size = 96, stroke = 9 }) {
       <div className="num">
         <div>
           {value}/{max}
-          <small>submitted</small>
+          <small>{label}</small>
         </div>
       </div>
     </div>

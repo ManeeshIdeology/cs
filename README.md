@@ -1,6 +1,6 @@
 # Feedback Note Portal — Sixth National Conference of Chief Secretaries
 
-Online version of **Template 1 – Feedback Note**. Officers sign up, log in and write up to **three notes (one per topic)**;
+Online version of **Template 1 – Feedback Note**. Officers sign up, log in and write **as many notes as they need — including several on the same topic**;
 admins review notes and **print them in the exact template layout** (single, selected, or compiled per State/UT with the
 *Summary of Feedback Notes* page, as in the "Process to upload Compiled Feedback Note" document).
 
@@ -71,7 +71,7 @@ Free hosting on PythonAnywhere: see **[DEPLOY_PYTHONANYWHERE.md](DEPLOY_PYTHONAN
 
 * **Sign up / log in** with email + password (min. 8, common/numeric passwords rejected). Login/sign-up are rate-limited and CSRF-protected.
 * **Forgot password:** e-mails a one-hour, single-use reset link (Gmail SMTP via `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` env vars; the form never reveals whether an address is registered). Without those variables the e-mail is printed to the server console, which is handy in development.
-* One person can file **1–3 notes, one per topic**: enforced in the API *and* by a database unique constraint on (user, topic).
+* One person can file **several notes, including more than one on the same topic** (safety cap: `MAX_NOTES_PER_USER` = 30 in `backend/core/constants.py`). In the compiled State/UT summary an officer is counted once per topic, with “(N notes)” beside their name; every note is still printed.
 * Drafts may be incomplete (and **autosave**); **Submit** requires Section 1 and all three answers. A submitted note must stay complete when edited
   (use "Move back to draft" to edit freely).
 * Users only ever see their own notes. Admins (`is_staff`) see everything; admin accounts cannot be created through sign-up.
@@ -111,7 +111,7 @@ To serve more people: run more worker processes (`gunicorn -c gunicorn.conf.py c
 ## Tests
 
 ```bash
-cd backend && python manage.py test        # 50 tests: auth, 3-note rule, submit validation, permissions, admin API, print, CSV
+cd backend && python manage.py test        # 52 tests: auth, multiple notes per topic, submit validation, permissions, admin API, print, CSV
 ```
 
 ## Notes

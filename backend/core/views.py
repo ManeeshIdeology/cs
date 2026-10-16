@@ -62,11 +62,15 @@ def print_many(request):
             groups.setdefault((n.user.state_ut, n.topic), []).append(n)
         order = {k: i for i, (k, _) in enumerate(TOPICS)}
         for (state, topic), rows in sorted(groups.items(), key=lambda kv: (kv[0][0], order[kv[0][1]])):
-            probationers = sum(1 for r in rows if r.service_status == PROBATIONER)
+            people = {}  # one line per officer, even if they wrote several notes on this topic
+            for r in rows:
+                person = people.setdefault(r.user_id, {"name": r.name, "current_posting": r.current_posting, "service_status": r.service_status, "notes": 0})
+                person["notes"] += 1
+            probationers = sum(1 for person in people.values() if person["service_status"] == PROBATIONER)
             sheets.append(
                 {
-                    "summary": True, "state": state, "topic_title": TOPIC_TITLES[topic], "rows": rows,
-                    "officers": len(rows) - probationers, "probationers": probationers,
+                    "summary": True, "state": state, "topic_title": TOPIC_TITLES[topic], "rows": list(people.values()),
+                    "officers": len(people) - probationers, "probationers": probationers,
                 }
             )
             sheets.extend({"note": r} for r in rows)

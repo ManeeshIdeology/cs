@@ -18,7 +18,7 @@ from .serializers import AdminNoteSerializer, NoteSerializer
 
 
 class MyNoteViewSet(viewsets.ModelViewSet):
-    """CRUD on the signed-in user's own notes (max one per topic, three in all)."""
+    """CRUD on the signed-in user's own notes (any number per topic, up to a safety cap)."""
 
     serializer_class = NoteSerializer
     pagination_class = None
@@ -164,7 +164,7 @@ class AdminStats(APIView):
                 "contributors": Note.objects.values("user").distinct().count(),
                 "submitted": Note.objects.filter(status=Note.SUBMITTED).count(),
                 "draft": Note.objects.filter(status=Note.DRAFT).count(),
-                "complete_users": officers.annotate(s=Count("notes", filter=Q(notes__status=Note.SUBMITTED))).filter(s=3).count(),
+                "submitters": officers.annotate(s=Count("notes", filter=Q(notes__status=Note.SUBMITTED))).filter(s__gte=1).count(),
                 "by_topic": list(by_topic.values()),
                 "by_state": [{"state": s or "—", "submitted": c} for s, c in by_state],
             }

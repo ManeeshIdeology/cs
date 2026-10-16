@@ -8,7 +8,7 @@
   <thead><tr><th style="width:12%">S.No.</th><th style="width:40%">Name</th><th>Current Posting</th></tr></thead>
   <tbody>
   {% for r in g.rows %}
-    <tr><td class="c">{{ forloop.counter }}</td><td>{{ r.name }}</td><td>{{ r.current_posting }}</td></tr>
+    <tr><td class="c">{{ forloop.counter }}</td><td>{{ r.name }}{% if r.notes > 1 %} ({{ r.notes }} notes){% endif %}</td><td>{{ r.current_posting }}</td></tr>
   {% endfor %}
   </tbody>
 </table>

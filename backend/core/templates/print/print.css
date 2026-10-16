@@ -57,3 +57,5 @@ table.summary td.c { text-align: center; }
   li, table.summary tr { break-inside: avoid; }
   .sheet > tbody > tr, .sheet > tbody > tr > td { break-inside: auto; }
 }
+
+svg.tick { width: 12px; height: 12px; vertical-align: -1px; }

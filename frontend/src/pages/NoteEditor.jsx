@@ -38,7 +38,6 @@ export default function NoteEditor() {
   const [noteId, setNoteId] = useState(id ? Number(id) : null)
   const [status, setStatus] = useState('draft')
   const [v, setV] = useState(null)
-  const [used, setUsed] = useState([])
   const [errors, setErrors] = useState({})
   const [banner, setBanner] = useState('')
   const [dirty, setDirty] = useState(false)
@@ -68,10 +67,7 @@ export default function NoteEditor() {
         } else {
           const mine = await api.get('/notes/')
           if (!alive) return
-          const existing = mine.find((n) => n.topic === topicParam)
-          if (existing) return setRedirect(`/notes/${existing.id}`)
           if (mine.length >= meta.max_notes || !meta.topics.some((t) => t.key === topicParam)) return setRedirect('/notes')
-          setUsed(mine.map((n) => n.topic))
           setV({
             topic: topicParam, name: user.name, designation: user.designation, batch: validBatch(meta, user.batch),
             service_status: user.service_status, training_institute: user.training_institute,
@@ -347,17 +343,15 @@ export default function NoteEditor() {
             <div className="topic-choice" role="radiogroup" aria-label="Topic">
               {meta.topics.map((t) => {
                 const Icon = TOPIC_ICON[t.key]
-                const taken = used.includes(t.key)
                 const on = v.topic === t.key
                 const locked = !isNew && !on
                 return (
-                  <label key={t.key} className={`topic-opt ${on ? 'on' : ''} ${taken || locked ? 'taken' : ''}`}>
-                    <input type="radio" name="topic" checked={on} disabled={taken || !isNew} onChange={() => set('topic', t.key)} />
+                  <label key={t.key} className={`topic-opt ${on ? 'on' : ''} ${locked ? 'taken' : ''}`}>
+                    <input type="radio" name="topic" checked={on} disabled={!isNew} onChange={() => set('topic', t.key)} />
                     <span className="mark"><Check /></span>
                     <span>
                       <b><Icon size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />{t.title}</b>
-                      {taken && <small>You have already filed a note on this topic.</small>}
-                      {locked && <small>Each note is tied to one topic — start another note for this one.</small>}
+                      {locked && <small>A note stays on the topic it was started under. Add a new note from My notes to write on another topic.</small>}
                     </span>
                   </label>
                 )
