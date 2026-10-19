@@ -1,4 +1,11 @@
+import logging
+
+from django.db import OperationalError
+from rest_framework import status
+from rest_framework.response import Response
 from rest_framework.views import exception_handler as drf_exception_handler
+
+log = logging.getLogger(__name__)
 
 
 def _first_message(data):
@@ -18,6 +25,14 @@ def exception_handler(exc, context):
     """Uniform error body: {"detail": "...", "fields": {"field": ["msg", ...]}}."""
     response = drf_exception_handler(exc, context)
     if response is None:
+        if isinstance(exc, OperationalError) and "locked" in str(exc).lower():
+            # Many writers at the same instant: ask the browser to try again instead of showing a server error.
+            log.warning("database busy: %s", exc)
+            return Response(
+                {"detail": "The server is busy for a moment. Your work will be saved automatically - please wait."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                headers={"Retry-After": "3"},
+            )
         return None
     data = response.data
     if isinstance(data, dict) and set(data) == {"detail"}:

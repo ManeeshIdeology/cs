@@ -145,6 +145,16 @@ export default function NoteEditor() {
     return () => clearTimeout(t)
   }, [v, dirty, status, loading, persist])
 
+  // A failed autosave (network blip, busy server) is retried by itself every few seconds - no need to type again.
+  const [retries, setRetries] = useState(0)
+  useEffect(() => {
+    if (save.state !== 'error' || !dirty || status === 'submitted') return
+    const t = setTimeout(() => {
+      persist(false, { silent: true }).then(() => setRetries(0)).catch(() => setRetries((n) => n + 1))
+    }, Math.min(5000 * (retries + 1), 30000))
+    return () => clearTimeout(t)
+  }, [save.state, dirty, status, retries, persist])
+
   // Warn before closing the tab with unsaved changes.
   useEffect(() => {
     if (!dirty) return

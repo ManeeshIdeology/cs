@@ -3,13 +3,10 @@ import { Component } from 'react'
 const STALE_CHUNK = /dynamically imported module|Loading chunk|Importing a module script failed|error loading dynamically/i
 const reloadOnce = () => {
   // A new version was deployed while this tab was open: its old script files are gone. Reload once to pick up the new ones.
-  try {
-    const last = Number(sessionStorage.getItem('reloaded-at') || 0)
-    if (Date.now() - last < 15000) return false
-    sessionStorage.setItem('reloaded-at', String(Date.now()))
-  } catch {
-    /* storage unavailable: fall through to a single reload */
-  }
+  // The guard lives in window.name (it survives a reload even if storage is blocked), so this can never loop.
+  const m = /reloaded-at=(\d+)/.exec(window.name || '')
+  if (Date.now() - (m ? Number(m[1]) : 0) < 15000) return false
+  window.name = `reloaded-at=${Date.now()}`
   window.location.reload()
   return true
 }

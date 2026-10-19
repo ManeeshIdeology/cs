@@ -554,3 +554,53 @@ class MultipleNotesPrintTests(Base):
         self.assertEqual(line.count('<svg class="tick"'), 1)
         self.assertNotIn(">X<", line)
         self.assertLess(line.index("] Probationer"), line.index('<svg class="tick"'))  # tick comes after the Probationer box
+
+
+class OperationalSafetyTests(Base):
+    def test_missing_old_script_reloads_the_page_instead_of_going_blank(self):
+        r = APIClient().get("/assets/index-OLDHASH123.js")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("javascript", r["Content-Type"])
+        body = r.content.decode()
+        self.assertIn("location.reload()", body)
+        self.assertIn("30000", body)  # at most one reload per 30 s: a broken deploy cannot loop
+        self.assertEqual(APIClient().get("/assets/old-style.css").status_code, 404)
+        self.assertEqual(APIClient().get("/assets/old-font.woff2").status_code, 404)
+
+    def test_busy_database_is_a_retryable_503_not_a_server_error(self):
+        from unittest import mock
+
+        from django.db import OperationalError
+
+        self.login(make_user())
+        with mock.patch("notes.views.MyNoteViewSet.get_queryset", side_effect=OperationalError("database is locked")):
+            r = self.c.get("/api/notes/")
+        self.assertEqual(r.status_code, 503)
+        self.assertEqual(r["Retry-After"], "3")
+        self.assertIn("busy", r.json()["detail"])
+
+    def test_other_database_errors_are_still_real_errors(self):
+        from unittest import mock
+
+        from django.db import OperationalError
+
+        self.login(make_user())
+        c = APIClient(raise_request_exception=False)
+        c.force_login(User.objects.get(email="asha@x.in"))
+        with mock.patch("notes.views.MyNoteViewSet.get_queryset", side_effect=OperationalError("no such table: notes_note")):
+            self.assertEqual(c.get("/api/notes/").status_code, 500)
+
+    def test_production_refuses_to_start_without_an_explicit_database_file(self):
+        import os
+        import subprocess
+        import sys
+
+        env = {k: v for k, v in os.environ.items() if k != "DJANGO_DB_FILE"}
+        env.update(DJANGO_DEBUG="0", DJANGO_SECRET_KEY="x", DJANGO_SETTINGS_MODULE="config.settings")
+        cwd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        p = subprocess.run([sys.executable, "-c", "import config.settings"], cwd=cwd, env=env, capture_output=True, text=True)
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("DJANGO_DB_FILE", p.stderr)
+        env["DJANGO_DB_FILE"] = os.path.join(cwd, "does-not-matter.sqlite3")
+        ok = subprocess.run([sys.executable, "-c", "import config.settings"], cwd=cwd, env=env, capture_output=True, text=True)
+        self.assertEqual(ok.returncode, 0, ok.stderr)

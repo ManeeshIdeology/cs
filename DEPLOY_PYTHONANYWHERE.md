@@ -55,13 +55,27 @@ python manage.py createsuperuser        # your admin login (email + name + passw
 
 Then click **Reload** on the Web tab and open `https://yourusername.pythonanywhere.com`.
 
-## Updating later
+## Updating later (one safe command)
 ```bash
-cd ~/cs && git pull
-pip install -r backend/requirements.txt
-cd backend && python manage.py migrate && python manage.py collectstatic --noinput
+cd ~/cs && git pull && bash scripts/pythonanywhere_update.sh
 ```
-then **Reload**. If you change the React code, run `npm run build` on your PC (`frontend/`) and commit the new `backend/frontend_dist`.
+The script (1) **backs up the live database** to `~/cs-data/backups/`, (2) pulls the new code, (3) installs packages,
+(4) runs `migrate` on **the live database** (`~/cs-data/db.sqlite3`), (5) collects static files and (6) **reloads the web app
+by itself**. It stops without changing anything if the live database file is missing. No manual Reload is needed.
+
+**Important:** a plain `python manage.py migrate` typed in a fresh console does *not* know about the settings in the WSGI
+file. The app now refuses to start in production mode without `DJANGO_DB_FILE`, so it can no longer touch a wrong database
+by accident. If you ever need a manual Django command, run it like this:
+
+```bash
+workon cs && cd ~/cs/backend
+export DJANGO_DEBUG=0 DJANGO_SECRET_KEY=x DJANGO_DB_FILE=$HOME/cs-data/db.sqlite3
+python manage.py showmigrations      # every line should show [X]
+```
+
+**Restore a backup** (if something is ever wrong): download or copy the newest file from `~/cs-data/backups/`
+over `~/cs-data/db.sqlite3`, then click Reload.
+You can delete a stray `~/cs/backend/db.sqlite3` if one exists - it is not the live database.
 
 ## If a page ever looks blank
 * Press **Ctrl+Shift+R**. After an update an open tab may still hold the old script files; the app now reloads itself once when it detects that, and shows a "Something went wrong - Reload page" screen instead of a blank page if anything else fails.

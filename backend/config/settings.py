@@ -74,6 +74,14 @@ TEMPLATES = [
 ]
 
 # ---- Database: SQLite -------------------------------------------------------------------------
+# In production the database file must be named explicitly. A console that forgot the variable used to fall
+# back to a stray file inside the code folder, so `migrate` silently ran on the wrong database.
+if not DEBUG and not os.environ.get("DJANGO_DB_FILE"):
+    raise ImproperlyConfigured(
+        "Set DJANGO_DB_FILE to the live database, e.g. export DJANGO_DB_FILE=$HOME/cs-data/db.sqlite3 "
+        "(or run scripts/pythonanywhere_update.sh, which does this for you)."
+    )
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -157,6 +165,9 @@ def _immutable_asset(path, url):
 
 WHITENOISE_IMMUTABLE_FILE_TEST = _immutable_asset
 WHITENOISE_MAX_AGE = 3600  # logo, favicon, ...
+# Look for files on every request instead of only at start-up. After `git pull` the NEW script files are then
+# served immediately; before, visitors got a page whose JavaScript file returned 404 (a blank screen) until Reload.
+WHITENOISE_AUTOREFRESH = True
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {

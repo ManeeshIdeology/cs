@@ -79,6 +79,26 @@ def print_many(request):
     return _render(request, sheets, f"Feedback Notes ({len(notes)})", instructions)
 
 
+STALE_ASSET_JS = (
+    "/* This file belongs to an older version of the site. Reload once to get the current version. */\n"
+    # window.name survives a reload even when storage is blocked, so the guard can never fail open into a loop
+    "(function(){var m=/asset-reload=(\\d+)/.exec(window.name||''),t=m?+m[1]:0;"
+    "if(Date.now()-t>30000){window.name='asset-reload='+Date.now();location.reload();}})();\n"
+)
+
+
+@never_cache
+def stale_asset(request, path=""):
+    """Old browser tabs keep asking for hashed files from a previous build, which no longer exist.
+
+    A 404 there means a blank page. For scripts we answer with a tiny program that reloads the page once
+    (at most once every 30 seconds, so a genuinely broken deploy cannot cause a reload loop).
+    """
+    if path.endswith(".js") or path.endswith(".mjs"):
+        return HttpResponse(STALE_ASSET_JS, content_type="text/javascript")
+    raise Http404
+
+
 @never_cache
 def spa(request, path=""):
     """Serves the React app (index.html) for every non-API route."""

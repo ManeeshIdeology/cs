@@ -42,6 +42,9 @@ export default function App() {
     return (
       <div className="container" style={{ maxWidth: 560, paddingTop: 80 }}>
         <Alert type="error">{fatal}</Alert>
+        <p style={{ marginTop: 16 }}>
+          <button className="btn btn-primary" onClick={() => window.location.reload()}>Try again</button>
+        </p>
       </div>
     )
   }

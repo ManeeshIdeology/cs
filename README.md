@@ -50,6 +50,7 @@ cd frontend && npm ci && npm run build        # writes backend/frontend_dist
 cd ../backend
 export DJANGO_DEBUG=0
 export DJANGO_SECRET_KEY="<long random string>"
+export DJANGO_DB_FILE="/var/data/feedback/db.sqlite3"     # required in production: always name the live database
 export DJANGO_ALLOWED_HOSTS="feedback.example.gov.in"
 export DJANGO_CSRF_TRUSTED="https://feedback.example.gov.in"
 python manage.py migrate
@@ -111,7 +112,7 @@ To serve more people: run more worker processes (`gunicorn -c gunicorn.conf.py c
 ## Tests
 
 ```bash
-cd backend && python manage.py test        # 52 tests: auth, multiple notes per topic, submit validation, permissions, admin API, print, CSV
+cd backend && python manage.py test        # 56 tests: auth, multiple notes per topic, submit validation, permissions, admin API, print, CSV
 ```
 
 ## Notes
